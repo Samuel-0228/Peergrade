@@ -1,17 +1,19 @@
 
-import { GoogleGenAI, GenerateContentResponse, Modality } from "@google/genai";
+// Use correct import according to Google GenAI SDK guidelines
+import { GoogleGenAI } from "@google/genai";
 import { SYSTEM_INSTRUCTION } from "../constants";
 
 export class GeminiService {
-  private ai: GoogleGenAI;
+  // GoogleGenAI instances are created inside methods to ensure they use the 
+  // most up-to-date API key from the selection dialog if applicable,
+  // following the rule: "Create a new GoogleGenAI instance right before making an API call."
 
-  constructor() {
-    this.ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
-  }
-
+  // Generates descriptive analysis from admission data context
   async generateAnalysis(query: string, history: { role: 'user' | 'model', text: string }[] = []) {
+    // Create a new GoogleGenAI instance right before making an API call
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     try {
-      const response = await this.ai.models.generateContent({
+      const response = await ai.models.generateContent({
         model: 'gemini-3-pro-preview',
         contents: [
           ...history.map(m => ({ role: m.role, parts: [{ text: m.text }] })),
@@ -22,6 +24,7 @@ export class GeminiService {
           temperature: 0.7,
         }
       });
+      // Directly access the .text property as per guidelines (it's not a function)
       return response.text || "No analysis available.";
     } catch (error) {
       console.error("Analysis Error:", error);
@@ -29,9 +32,10 @@ export class GeminiService {
     }
   }
 
+  // Generates high-fidelity research visualizations
   async generateVisualization(prompt: string, aspectRatio: string, imageSize: string) {
-    // Note: Re-instantiate to ensure latest API key if using key selection
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+    // Create a new GoogleGenAI instance right before making an API call
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     try {
       const response = await ai.models.generateContent({
         model: 'gemini-3-pro-image-preview',
@@ -46,9 +50,13 @@ export class GeminiService {
         }
       });
 
-      for (const part of response.candidates[0].content.parts) {
-        if (part.inlineData) {
-          return `data:image/png;base64,${part.inlineData.data}`;
+      // Find the image part in the response candidates as per guidelines
+      if (response.candidates && response.candidates[0]?.content?.parts) {
+        for (const part of response.candidates[0].content.parts) {
+          if (part.inlineData) {
+            // Correct way to extract base64 image data from inlineData
+            return `data:image/png;base64,${part.inlineData.data}`;
+          }
         }
       }
       return null;

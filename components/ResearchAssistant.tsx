@@ -1,16 +1,21 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+// Added missing useMemo import
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { GeminiService } from '../services/geminiService';
-import { Message } from '../types';
+import { Message, AdmissionData } from '../types';
+import { MOCK_ADMISSIONS } from '../constants';
+import { DataService } from '../services/dataService';
 
 const ResearchAssistant: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'model', text: 'Operational research portal active. I am available to provide neutral, descriptive summaries of current admission trends. Please state your analytical query.' }
+    { role: 'model', text: 'Operational research portal active. I am available to provide neutral, descriptive summaries of current admission trends based on the active dataset. Please state your analytical query.' }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const gemini = useRef(new GeminiService());
+  // Fix: useMemo is now imported from 'react' to resolve "Cannot find name 'useMemo'" error
+  const dataService = useMemo(() => new DataService(), []);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -22,12 +27,24 @@ const ResearchAssistant: React.FC = () => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
 
+    // Fetch latest data context to ensure AI sees current numbers
+    let currentData: AdmissionData[] = MOCK_ADMISSIONS;
+    const savedUrl = localStorage.getItem('admission_sheet_url');
+    if (savedUrl) {
+      try {
+        currentData = await dataService.fetchExternalAdmissions(savedUrl);
+      } catch (e) { console.warn("Context fetch failed, using fallback."); }
+    }
+
+    const dataContextStr = JSON.stringify(currentData);
+    const contextPrompt = `Analyze this dataset: ${dataContextStr}. Question: ${input}`;
+
     const userMsg: Message = { role: 'user', text: input };
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setIsLoading(true);
 
-    const response = await gemini.current.generateAnalysis(input, messages);
+    const response = await gemini.current.generateAnalysis(contextPrompt, messages);
     setMessages(prev => [...prev, { role: 'model', text: response }]);
     setIsLoading(false);
   };
@@ -39,7 +56,10 @@ const ResearchAssistant: React.FC = () => {
           <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
           <h3 className="text-sm font-semibold tracking-widest uppercase">Research Analysis Portal</h3>
         </div>
-        <span className="text-[10px] font-mono text-gray-500">SECURE TERMINAL // VER 2.5</span>
+        <div className="flex items-center gap-4">
+           <span className="text-[10px] font-mono text-gray-500">SYNC: {localStorage.getItem('admission_sheet_url') ? 'EXTERNAL' : 'INTERNAL'}</span>
+           <span className="text-[10px] font-mono text-gray-500">VER 2.6.4</span>
+        </div>
       </div>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-6">
@@ -73,13 +93,13 @@ const ResearchAssistant: React.FC = () => {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Enter research query (e.g., 'Describe grade distributions in engineering')..."
+            placeholder="Query current synchronized data..."
             className="flex-1 bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-blue-500 transition-colors"
           />
           <button
             type="submit"
             disabled={isLoading}
-            className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white px-6 py-2 rounded-lg text-sm font-medium transition-all"
+            className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white px-6 py-2 rounded-lg text-sm font-medium transition-all font-mono"
           >
             SND
           </button>
