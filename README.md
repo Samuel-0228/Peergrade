@@ -1,20 +1,59 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
 
-# Run and deploy your AI Studio app
+---
 
-This contains everything you need to run your app locally.
+## ✨ Key Features
 
-View your app in AI Studio: https://ai.studio/apps/temp/1
+- 📈 Interactive grade distribution charts
+- 🔥 Preference demand comparisons
+- 🧮 Percentiles and competition indicators
+- 🕒 Near real-time updates with timestamps
+- 🤖 AI-generated academic-style summaries
+- 🌗 Modern, futuristic UI (dark/light themes)
+- 📱 Fully responsive design
 
-## Run Locally
+---
 
-**Prerequisites:**  Node.js
+## 🤖 Role of AI (Important)
 
+AI is used **only** to:
+- Summarize aggregated statistics
+- Describe observable patterns
+- Provide neutral, academic explanations
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+AI **does not**:
+- Access raw individual data
+- Predict outcomes
+- Advise or recommend programs
+- Influence user decisions directly
+
+AI functions as a **research narrator**, not a decision-maker.
+
+---
+
+## ⚖️ Ethics & Transparency
+
+This project follows strict ethical guidelines:
+
+- Anonymized data only
+- Aggregated analysis
+- No prescriptive language
+- Clear disclaimers
+- Transparent methodology
+- Acknowledgment of limitations (e.g., self-selection bias)
+
+Users are encouraged to interpret visual data critically.
+
+---
+
+## 🛠 Tech Stack
+
+- **Frontend:** Next.js (App Router)
+- **Styling:** Tailwind CSS
+- **Charts:** Recharts / Nivo
+- **AI:** Gemini API (text analysis only)
+- **Data Source:** Google Sheets API or public CSV
+- **Deployment:** Vercel or Render
+
+---
+
+=
