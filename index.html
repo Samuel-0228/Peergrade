@@ -1,46 +1,58 @@
-
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>Savvy | Academic Insight Dashboard</title>
+
+    <!-- Favicon (eagle or any bird icon in the same folder) -->
+    <link rel="icon" type="image/png" href="eagle.png">
+    <!-- If you have an .ico file instead, use this: -->
+    <!-- <link rel="icon" type="image/x-icon" href="favicon.ico"> -->
+
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #030712;
-            color: #f3f4f6;
-        }
-        h1, h2, h3, h4, h5, h6 {
-            font-family: 'Space Grotesk', sans-serif;
-        }
-        .glass {
-            background: rgba(17, 24, 39, 0.7);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        .glass-accent {
-            background: rgba(30, 41, 59, 0.5);
-            backdrop-filter: blur(8px);
-            border: 1px solid rgba(56, 189, 248, 0.2);
-        }
-        .font-mono-plex {
-            font-family: 'IBM Plex Mono', monospace;
-        }
-        ::-webkit-scrollbar {
-            width: 4px;
-        }
-        ::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-        }
+
+    <!-- Google Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+        rel="stylesheet" />
+
+    body {
+    font-family: 'Inter', sans-serif;
+    background-color: #030712;
+    color: #f3f4f6;
+    }
+    h1, h2, h3, h4, h5, h6 {
+    font-family: 'Space Grotesk', sans-serif;
+    }
+    .glass {
+    background: rgba(17, 24, 39, 0.7);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .glass-accent {
+    background: rgba(30, 41, 59, 0.5);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(56, 189, 248, 0.2);
+    }
+    .font-mono-plex {
+    font-family: 'IBM Plex Mono', monospace;
+    }
+    ::-webkit-scrollbar {
+    width: 4px;
+    }
+    ::-webkit-scrollbar-track {
+    background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    }
     </style>
-<script type="importmap">
+    <script type="importmap">
 {
   "imports": {
     "react-router-dom": "https://esm.sh/react-router-dom@^7.11.0",
@@ -52,10 +64,12 @@
   }
 }
 </script>
-<link rel="stylesheet" href="/index.css">
+    <link rel="stylesheet" href="/index.css">
 </head>
+
 <body>
     <div id="root"></div>
-<script type="module" src="/index.tsx"></script>
+    <script type="module" src="/index.tsx"></script>
 </body>
+
 </html>
