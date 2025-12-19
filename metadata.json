@@ -1,5 +1,5 @@
-
 {
-  "name": "Savvy | Academic Intelligence",
-  "description": "An advanced research-grade platform for longitudinal academic data analysis and departmental trend synthesis."
+  "name": "Savvy Academic Insights",
+  "description": "A public academic insight platform visualizing aggregated, anonymous survey response data with cross-question analysis and descriptive summaries.",
+  "requestFramePermissions": []
 }

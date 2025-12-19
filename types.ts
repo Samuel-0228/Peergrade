@@ -1,26 +1,48 @@
 
-export enum ViewState {
-  DASHBOARD = 'DASHBOARD',
-  RESEARCH_ASSISTANT = 'RESEARCH_ASSISTANT',
-  VISUALIZATION_GEN = 'VISUALIZATION_GEN',
-  ADMIN = 'ADMIN'
+export enum SessionStatus {
+  LIVE = 'Live',
+  PAUSED = 'Paused',
+  ARCHIVED = 'Archived'
 }
 
-export interface AdmissionData {
-  department: string;
-  applicants: number;
-  averageGrade: number;
-  acceptanceRate: number;
-  firstChoiceDemand: number;
+export interface SurveyColumn {
+  id: string;
+  label: string;
+  type: 'categorical' | 'numerical';
+  isVisualizable: boolean;
 }
 
-export interface Message {
-  role: 'user' | 'model';
-  text: string;
+export interface RawResponse {
+  [key: string]: string | number;
 }
 
-export interface ImageGenParams {
-  prompt: string;
-  aspectRatio: '1:1' | '3:4' | '4:3' | '9:16' | '16:9';
-  imageSize: '1K' | '2K' | '4K';
+export interface Session {
+  id: string;
+  title: string;
+  description: string;
+  sheetUrl?: string;
+  sourceName?: string;
+  participationCount: number;
+  lastUpdated: string;
+  status: SessionStatus;
+  isPublic: boolean;
+  aiInsights?: string;
+  columnDescriptions?: Record<string, string>;
+  columns: SurveyColumn[];
+  responses: RawResponse[];
+  showCharts: boolean;
+  showAiInsights: boolean;
+  enableCsvDownload: boolean;
+}
+
+export enum UserRole {
+  PUBLIC = 'Public',
+  ADMIN = 'Admin',
+  OWNER = 'Owner'
+}
+
+export interface User {
+  id: string;
+  email: string;
+  role: UserRole;
 }
