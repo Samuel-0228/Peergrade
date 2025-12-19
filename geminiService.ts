@@ -5,7 +5,7 @@ import { RawResponse, SurveyColumn } from "./types";
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 /**
- * Generates neutral, 1-sentence descriptions for each question based on data distribution.
+ * Generates robust, 2-3 sentence neutral descriptions for each question.
  */
 export const generateQuestionDescriptions = async (
   responses: RawResponse[], 
@@ -25,14 +25,13 @@ export const generateQuestionDescriptions = async (
 
   const prompt = `
     Analyze these survey question distributions. 
-    For each question, provide a EXACTLY ONE neutral, factual sentence describing the most prominent pattern or the overall spread.
+    For each question, provide 2-3 neutral, factual sentences describing patterns, concentrations, and the relative spread of responses.
     
     RULES:
-    - NO ADVICE.
-    - NO RECOMMENDATIONS.
-    - NO JUDGMENT (e.g., don't say "good" or "bad").
-    - Use phrases like "concentrated in", "distributed across", "shows a majority in".
-    - 1 sentence maximum per question.
+    - NO ADVICE, NO RECOMMENDATIONS, NO JUDGMENT.
+    - Describe the "shape" of the data (e.g., "skewed towards", "uniformly distributed", "highly concentrated in X").
+    - Use sophisticated academic language but stay strictly observational.
+    - Mention specific percentages or counts if they highlight a significant majority.
     
     Data: ${JSON.stringify(dataSummaries)}
   `;
@@ -46,7 +45,7 @@ export const generateQuestionDescriptions = async (
         responseSchema: {
           type: Type.OBJECT,
           properties: columns.reduce((acc, col) => {
-            acc[col.id] = { type: Type.STRING, description: `Neutral description for ${col.label}` };
+            acc[col.id] = { type: Type.STRING, description: `Analytical description for ${col.label}` };
             return acc;
           }, {} as any),
           required: columns.map(c => c.id)
@@ -54,8 +53,7 @@ export const generateQuestionDescriptions = async (
       }
     });
     
-    const result = JSON.parse(response.text || "{}");
-    return result;
+    return JSON.parse(response.text || "{}");
   } catch (error) {
     console.error("Gemini Insight Error:", error);
     return {};
@@ -63,25 +61,31 @@ export const generateQuestionDescriptions = async (
 };
 
 /**
- * Handles the Companion AI chat logic. Directs users to Telegram for results.
+ * Handles the Companion AI chat logic with correlation context.
  */
 export const chatWithCompanion = async (
   messages: { role: 'user' | 'model'; parts: { text: string }[] }[],
   dataSummary: string,
+  correlationData: string,
   sessionTitle: string
 ) => {
   const systemInstruction = `
-    You are Savvy Companion, a neutral academic research assistant for the dashboard "${sessionTitle}".
+    You are Savvy Companion, a structural academic research node for "${sessionTitle}".
     
-    CRITICAL RULES:
-    1. If the user asks for "results", "admission lists", "who got in", "my result", "pass mark", or "official outcomes", you MUST direct them to the official Telegram channel: https://t.me/Savvy_Society. This is the ONLY place for official results.
-    2. Maintain a neutral, academic tone.
-    3. Never give advice (e.g., "you should apply to X").
-    4. Never predict success or failure for any individual.
-    5. Base your answers strictly on the collective data trends provided in this summary: ${dataSummary.substring(0, 5000)}.
-    6. Mention that the data is aggregated and anonymous.
-    7. Do not use emojis.
-    8. Be concise.
+    CONTEXTUAL DATA:
+    Flat Distributions: ${dataSummary.substring(0, 3000)}
+    
+    CROSS-TABULATION (CORRELATION MAP):
+    The map contains counts for specific intersections between questions (e.g., "Major x GPA").
+    ${correlationData.substring(0, 6000)}
+    
+    BEHAVIORAL RULES:
+    1. PRECISION: If a user asks "How many people with [Value A] chose [Value B]?", look at the Correlation Map.
+       - Example logic: For "GPA x Major", look for the GPA bracket, then the count for that Major.
+    2. TRANSPARENCY: If the specific intersection isn't in the provided map, say "The current structural summary doesn't map that specific cross-point, but general trends suggest..."
+    3. NO ADVICE: Never suggest actions.
+    4. REDIRECT: Official results or admission lists are ONLY at https://t.me/Savvy_Society.
+    5. TONE: Neutral, high-fidelity, academic.
   `;
 
   try {
@@ -90,12 +94,12 @@ export const chatWithCompanion = async (
       contents: messages,
       config: {
         systemInstruction,
-        temperature: 0.3
+        temperature: 0.1
       }
     });
     return response.text;
   } catch (error) {
     console.error("Companion AI Chat Error:", error);
-    return "I am currently unable to process your request. Please visit https://t.me/Savvy_Society for official updates.";
+    return "Protocol connection lost. Visit t.me/Savvy_Society.";
   }
 };

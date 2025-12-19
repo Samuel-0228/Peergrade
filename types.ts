@@ -5,6 +5,14 @@ export enum SessionStatus {
   ARCHIVED = 'Archived'
 }
 
+export type AccentColor = 'sky' | 'emerald' | 'rose' | 'amber' | 'violet';
+export type BackgroundStyle = 'deep' | 'gradient' | 'minimal';
+
+export interface AppTheme {
+  accent: AccentColor;
+  bgStyle: BackgroundStyle;
+}
+
 export interface SurveyColumn {
   id: string;
   label: string;
@@ -33,6 +41,7 @@ export interface Session {
   showCharts: boolean;
   showAiInsights: boolean;
   enableCsvDownload: boolean;
+  correlationData?: string;
 }
 
 export enum UserRole {

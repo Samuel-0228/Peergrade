@@ -15,11 +15,22 @@ const generateResponses = (count: number) => {
   }));
 };
 
+const MOCK_RESPONSES = generateResponses(1240);
+
+// Simple pre-calc for mock correlation
+const MOCK_CORRELATION = JSON.stringify({
+  "Primary Field of Academic Interest x Current GPA Bracket": {
+    "Computer Science": { "3.75 – 4.0": 85, "3.5 – 3.75": 120, "3.0 – 3.5": 45 },
+    "Mathematics": { "3.75 – 4.0": 92, "3.5 – 3.75": 110, "3.0 – 3.5": 50 },
+    "Physics": { "3.75 – 4.0": 78, "3.5 – 3.75": 90, "3.0 – 3.5": 60 }
+  }
+});
+
 export const INITIAL_SESSIONS: Session[] = [
   {
     id: 'sav-1',
-    title: 'University Entrance Cohort Analysis Q4',
-    description: 'A neutral, descriptive study of incoming cohort academic profiles and departmental interests.',
+    title: 'Academic Profile Cohort Analysis 2024',
+    description: 'A comprehensive descriptive analysis of departmental interests and academic benchmarks for the current admission cycle.',
     sheetUrl: 'https://docs.google.com/spreadsheets/d/1X-SAVVY-1',
     participationCount: 1240,
     lastUpdated: new Date().toISOString(),
@@ -28,13 +39,14 @@ export const INITIAL_SESSIONS: Session[] = [
     showCharts: true,
     showAiInsights: true,
     enableCsvDownload: true,
-    aiInsights: 'Respondents reporting entrance scores in the 530+ category appear most frequently associated with interests in Mathematics and Computer Science.',
+    aiInsights: 'Deep learning clusters identified significant concentration in Computer Science with a core GPA benchmark of 3.75+.',
     columns: MOCK_SURVEY_COLUMNS,
-    responses: generateResponses(1240),
+    responses: MOCK_RESPONSES,
+    correlationData: MOCK_CORRELATION,
     columnDescriptions: {
-      q1: "Computer Science and Mathematics are the most frequently selected fields of interest in this cohort.",
-      q2: "GPA reports are concentrated heavily in the 3.5–3.75 range, showing a high academic performance trend.",
-      q3: "A significant portion of respondents achieved scores above 530, while 15% opted not to report their entrance score."
+      q1: "Field interest is dominated by Computer Science and Mathematics, accounting for nearly 45% of total interest across all surveyed disciplines.",
+      q2: "The GPA distribution reveals a strong clustering in the 3.5 to 3.75 range, indicating a highly competitive academic baseline for the current cohort.",
+      q3: "Entrance scores show significant variance, though the 530+ bracket remains the most prominent for respondents reporting departmental preferences."
     }
   }
 ];
