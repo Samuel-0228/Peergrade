@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { HashRouter, Routes, Route, Link, useParams } from 'react-router-dom';
+import { HashRouter, Routes, Route, Link, useParams, useNavigate, useLocation } from 'react-router-dom';
 import { 
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell as RechartsCell
@@ -32,27 +32,21 @@ const THEME_BGS: Record<BackgroundStyle, string> = {
   minimal: '#0a0a0a'
 };
 
-// Fix: Added missing CHART_COLORS constant
 const CHART_COLORS = [
   '#3b82f6', '#10b981', '#f43f5e', '#f59e0b', '#8b5cf6', 
   '#06b6d4', '#ec4899', '#f97316', '#14b8a6', '#6366f1'
 ];
 
-// --- Correlation Helper (Cross-Tabulation) ---
+// --- Helpers ---
 const calculateCorrelationMap = (responses: RawResponse[], columns: SurveyColumn[]): string => {
   const map: Record<string, Record<string, Record<string, number>>> = {};
-  const visualCols = columns.filter(c => c.isVisualizable);
-
-  // We prioritize the first 8 columns for intersections to stay within context limits
-  const targetCols = visualCols.slice(0, 8);
-
+  const targetCols = columns.filter(c => c.isVisualizable).slice(0, 8);
   for (let i = 0; i < targetCols.length; i++) {
     for (let j = i + 1; j < targetCols.length; j++) {
       const colA = targetCols[i];
       const colB = targetCols[j];
       const pairKey = `${colA.label} x ${colB.label}`;
       map[pairKey] = {};
-
       responses.forEach(r => {
         const valA = String(r[colA.id] || 'Unknown');
         const valB = String(r[colB.id] || 'Unknown');
@@ -64,8 +58,7 @@ const calculateCorrelationMap = (responses: RawResponse[], columns: SurveyColumn
   return JSON.stringify(map);
 };
 
-// --- Persistence Service ---
-const STORAGE_KEY = 'savvy_sessions_node_v1';
+const STORAGE_KEY = 'savvy_sessions_node_v2';
 const Persistence = {
   save: (sessions: Session[]) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
@@ -76,7 +69,6 @@ const Persistence = {
   }
 };
 
-// --- CSV Helper ---
 const parseCSV = (csv: string): { columns: SurveyColumn[], responses: RawResponse[] } => {
   const lines = csv.split(/\r?\n/).filter(line => line.trim().length > 0);
   if (lines.length < 1) return { columns: [], responses: [] };
@@ -133,24 +125,7 @@ const getColumnDist = (responses: RawResponse[], columnId: string) => {
   };
 };
 
-const CustomTooltip = ({ active, payload, theme }: any) => {
-  if (active && payload && payload.length) {
-    const data = payload[0].payload;
-    const accent = THEME_ACCENTS[theme.accent];
-    return (
-      <div className="glass px-4 py-3 rounded-xl border-white/10 shadow-2xl backdrop-blur-xl">
-        <p className="text-sm font-bold text-white mb-1">{data.name}</p>
-        <div className="flex items-center gap-3">
-          <span className="text-xs font-mono" style={{ color: accent }}>Count: {data.value}</span>
-          <span className="text-xs text-emerald-400 font-mono">{data.percentage}%</span>
-        </div>
-      </div>
-    );
-  }
-  return null;
-};
-
-// --- Components ---
+// --- Sub-Components ---
 
 const CompanionChat: React.FC<{ session: Session, theme: AppTheme }> = ({ session, theme }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -172,16 +147,13 @@ const CompanionChat: React.FC<{ session: Session, theme: AppTheme }> = ({ sessio
     setInput('');
     setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
     setLoading(true);
-
+    const history = messages.map(m => ({ role: m.role, parts: [{ text: m.text }] }));
+    history.push({ role: 'user', parts: [{ text: userMsg }] });
     const visualColumns = session.columns.filter(c => c.isVisualizable);
     const dataSummary = visualColumns.slice(0, 15).map(c => {
       const { data } = getColumnDist(session.responses, c.id);
       return `${c.label}: ${data.slice(0, 10).map(d => `${d.name}(${d.value})`).join(', ')}`;
     }).join('; ');
-
-    const history = messages.map(m => ({ role: m.role, parts: [{ text: m.text }] }));
-    history.push({ role: 'user', parts: [{ text: userMsg }] });
-
     const aiResponse = await chatWithCompanion(history, dataSummary, session.correlationData || "{}", session.title);
     setMessages(prev => [...prev, { role: 'model', text: aiResponse || "Communication array timed out." }]);
     setLoading(false);
@@ -193,41 +165,26 @@ const CompanionChat: React.FC<{ session: Session, theme: AppTheme }> = ({ sessio
         <div className={`glass w-[340px] sm:w-[450px] h-[650px] mb-6 rounded-[3rem] overflow-hidden flex flex-col border-white/10 shadow-2xl animate-in fade-in slide-in-from-bottom-8 duration-500`}>
           <div className="p-6 flex items-center justify-between border-b border-white/5" style={{ backgroundColor: accentColor }}>
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center text-white font-black text-sm">
-                {BIRD_LOGO("w-5 h-5")}
-              </div>
+              <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center text-white font-black text-sm">{BIRD_LOGO("w-5 h-5")}</div>
               <span className="text-black font-black text-xs uppercase tracking-[0.2em]">Companion Node</span>
             </div>
-            <button onClick={() => setIsOpen(false)} className="text-black/60 hover:text-black">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12"></path></svg>
-            </button>
+            <button onClick={() => setIsOpen(false)} className="text-black/60 hover:text-black"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12"></path></svg></button>
           </div>
           <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-6 bg-black/10">
             {messages.map((m, i) => (
               <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[85%] px-5 py-3.5 rounded-2xl text-xs leading-relaxed ${m.role === 'user' ? 'text-black font-bold shadow-lg' : 'bg-white/5 border border-white/5 text-slate-300'}`} style={m.role === 'user' ? { backgroundColor: accentColor } : {}}>
-                  {m.text}
-                </div>
+                <div className={`max-w-[85%] px-5 py-3.5 rounded-2xl text-xs leading-relaxed ${m.role === 'user' ? 'text-black font-bold shadow-lg' : 'bg-white/5 border border-white/5 text-slate-300'}`} style={m.role === 'user' ? { backgroundColor: accentColor } : {}}>{m.text}</div>
               </div>
             ))}
-            {loading && <div className="flex justify-start"><div className="bg-white/5 px-5 py-3 rounded-2xl text-xs font-bold animate-pulse" style={{ color: accentColor }}>Synchronizing Intersections...</div></div>}
+            {loading && <div className="flex justify-start"><div className="bg-white/5 px-5 py-3 rounded-2xl text-xs font-bold animate-pulse" style={{ color: accentColor }}>Querying Matrix...</div></div>}
           </div>
           <div className="p-6 bg-black/30 border-t border-white/5 flex gap-3">
-            <input 
-              value={input} onChange={e => setInput(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleSend()}
-              placeholder="Ask about GPA vs Majors, etc..."
-              className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-white focus:outline-none focus:border-white/30 transition-all"
-            />
-            <button onClick={handleSend} className="p-4 rounded-2xl transition-all hover:scale-105 active:scale-95" style={{ backgroundColor: accentColor }}>
-              <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
-            </button>
+            <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSend()} placeholder="Ask for cross-column counts..." className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-white focus:outline-none focus:border-white/30 transition-all" />
+            <button onClick={handleSend} className="p-4 rounded-2xl transition-all hover:scale-105 active:scale-95" style={{ backgroundColor: accentColor }}><svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg></button>
           </div>
         </div>
       )}
-      <button onClick={() => setIsOpen(!isOpen)} className="w-16 h-16 rounded-[2rem] flex items-center justify-center text-black shadow-2xl hover:scale-110 active:scale-95 transition-all animate-float" style={{ backgroundColor: accentColor }}>
-        {BIRD_LOGO("w-8 h-8")}
-      </button>
+      <button onClick={() => setIsOpen(!isOpen)} className="w-16 h-16 rounded-[2rem] flex items-center justify-center text-black shadow-2xl hover:scale-110 transition-all animate-float" style={{ backgroundColor: accentColor }}>{BIRD_LOGO("w-8 h-8")}</button>
     </div>
   );
 };
@@ -235,22 +192,18 @@ const CompanionChat: React.FC<{ session: Session, theme: AppTheme }> = ({ sessio
 const DashboardItem: React.FC<{ col: SurveyColumn, responses: RawResponse[], description: string, theme: AppTheme }> = ({ col, responses, description, theme }) => {
   const [showDeepDive, setShowDeepDive] = useState(false);
   const { data, totalValid } = useMemo(() => getColumnDist(responses, col.id), [responses, col.id]);
-  const isMany = data.length > 8;
   const accent = THEME_ACCENTS[theme.accent];
+  const isMany = data.length > 8;
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-700">
       <div className="flex justify-between items-end">
         <div className="space-y-2">
           <h4 className="text-3xl font-black text-white leading-tight tracking-tight">{col.label}</h4>
-          <p className="text-[10px] text-slate-500 font-mono-plex uppercase tracking-[0.2em]">{totalValid.toLocaleString()} response samples</p>
+          <p className="text-[10px] text-slate-500 font-mono-plex uppercase tracking-[0.2em]">{totalValid.toLocaleString()} valid samples</p>
         </div>
-        <button 
-          onClick={() => setShowDeepDive(!showDeepDive)}
-          className="text-[10px] font-black uppercase tracking-widest px-5 py-2.5 rounded-full border transition-all"
-          style={{ borderColor: `${accent}40`, color: accent, backgroundColor: `${accent}10` }}
-        >
-          {showDeepDive ? 'Collapse Distribution' : 'See Detailed Metrics'}
+        <button onClick={() => setShowDeepDive(!showDeepDive)} className="text-[10px] font-black uppercase tracking-widest px-5 py-2.5 rounded-full border transition-all" style={{ borderColor: `${accent}40`, color: accent, backgroundColor: `${accent}10` }}>
+          {showDeepDive ? 'Collapse Summary' : 'Detailed Analysis'}
         </button>
       </div>
 
@@ -259,18 +212,17 @@ const DashboardItem: React.FC<{ col: SurveyColumn, responses: RawResponse[], des
           <ResponsiveContainer width="100%" height="100%">
             {!isMany ? (
               <PieChart>
-                <Pie data={data} innerRadius={100} outerRadius={150} paddingAngle={5} dataKey="value" stroke="none">
-                  {data.map((_, i) => <RechartsCell key={`c-${i}`} fill={i < 10 ? CHART_COLORS[i] : `${accent}${Math.max(20, 100 - i * 10)}`} />)}
+                <Pie data={data} innerRadius={100} outerRadius={155} paddingAngle={4} dataKey="value" stroke="none">
+                  {data.map((_, i) => <RechartsCell key={`c-${i}`} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
                 </Pie>
-                <Tooltip content={<CustomTooltip theme={theme} />} />
+                <Tooltip content={<div className="glass px-4 py-2 rounded-xl text-xs text-white border-white/10">Value: {data[0]?.value}</div>} />
               </PieChart>
             ) : (
               <BarChart data={data} layout="vertical" margin={{ left: 20, right: 60 }}>
                 <XAxis type="number" hide />
                 <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b', fontWeight: 600 }} width={160} />
-                <Tooltip content={<CustomTooltip theme={theme} />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
                 <Bar dataKey="value" fill={accent} radius={[0, 8, 8, 0]} barSize={32}>
-                   {data.map((_, i) => <RechartsCell key={`b-${i}`} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                  {data.map((_, i) => <RechartsCell key={`b-${i}`} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
                 </Bar>
               </BarChart>
             )}
@@ -280,15 +232,9 @@ const DashboardItem: React.FC<{ col: SurveyColumn, responses: RawResponse[], des
         {showDeepDive && (
           <div className="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 pt-12 border-t border-white/5 animate-in fade-in zoom-in-95 duration-500">
             {data.map((entry, i) => (
-              <div key={i} className="flex flex-col gap-2 p-5 rounded-3xl bg-white/5 border border-white/5 hover:bg-white/10 transition-all group">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
-                  <span className="text-[10px] text-slate-400 truncate font-black uppercase tracking-widest">{entry.name}</span>
-                </div>
-                <div className="flex items-end justify-between">
-                  <span className="text-2xl font-black text-white">{entry.value}</span>
-                  <span className="text-[10px] font-mono-plex mb-1" style={{ color: accent }}>{entry.percentage}%</span>
-                </div>
+              <div key={i} className="flex flex-col gap-2 p-5 rounded-3xl bg-white/5 border border-white/5 hover:bg-white/10 transition-all">
+                <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} /><span className="text-[10px] text-slate-400 truncate font-black uppercase tracking-widest">{entry.name}</span></div>
+                <div className="flex items-end justify-between"><span className="text-2xl font-black text-white">{entry.value}</span><span className="text-[10px] font-mono-plex mb-1" style={{ color: accent }}>{entry.percentage}%</span></div>
               </div>
             ))}
           </div>
@@ -296,77 +242,38 @@ const DashboardItem: React.FC<{ col: SurveyColumn, responses: RawResponse[], des
       </div>
       
       <div className="pl-10 border-l-4 py-6 bg-white/5 rounded-r-[3rem]" style={{ borderLeftColor: `${accent}40` }}>
-        <p className="text-slate-400 text-lg italic font-medium leading-relaxed max-w-4xl">
-          {description}
-        </p>
+        <p className="text-slate-400 text-lg italic font-medium leading-relaxed max-w-4xl">{description}</p>
       </div>
     </div>
   );
 };
 
+// --- Views ---
+
 const Navbar: React.FC<{ 
-  user: User | null; 
-  theme: AppTheme; 
-  setTheme: (t: AppTheme) => void; 
-  onLogin: () => void; 
-  onLogout: () => void 
+  user: User | null; theme: AppTheme; setTheme: (t: AppTheme) => void; onLogin: () => void; onLogout: () => void 
 }> = ({ user, theme, setTheme, onLogin, onLogout }) => {
   const [showThemePanel, setShowThemePanel] = useState(false);
   const accentColor = THEME_ACCENTS[theme.accent];
-
   return (
     <nav className="glass sticky top-0 z-50 border-b border-white/5 px-10 py-6 flex items-center justify-between backdrop-blur-3xl">
       <Link to="/" className="flex items-center gap-3 group">
-        <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-black shadow-xl transition-all group-hover:scale-110" style={{ backgroundColor: accentColor }}>
-          {BIRD_LOGO("w-6 h-6")}
-        </div>
+        <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-black shadow-xl transition-all group-hover:scale-110" style={{ backgroundColor: accentColor }}>{BIRD_LOGO("w-6 h-6")}</div>
         <span className="text-white font-black tracking-[0.4em] font-mono-plex text-sm uppercase">Savvy</span>
       </Link>
-      
       <div className="flex items-center gap-10">
         <div className="relative">
-          <button 
-            onClick={() => setShowThemePanel(!showThemePanel)}
-            className="text-[10px] font-black uppercase tracking-widest hover:opacity-100 transition-opacity flex items-center gap-2"
-            style={{ color: accentColor }}
-          >
-            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: accentColor }} />
-            Theme Studio
+          <button onClick={() => setShowThemePanel(!showThemePanel)} className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2" style={{ color: accentColor }}>
+            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: accentColor }} />Theme Studio
           </button>
-          
           {showThemePanel && (
             <div className="absolute top-12 right-0 glass p-6 rounded-3xl w-64 space-y-6 shadow-2xl animate-in zoom-in-95 border-white/10 z-[1001]">
-              <div className="space-y-3">
-                <p className="text-[9px] uppercase font-black tracking-widest text-slate-500">Accent Spectrum</p>
-                <div className="flex gap-3">
-                  {(Object.keys(THEME_ACCENTS) as AccentColor[]).map(a => (
-                    <button 
-                      key={a} onClick={() => setTheme({ ...theme, accent: a })}
-                      className={`w-6 h-6 rounded-full border-2 transition-all ${theme.accent === a ? 'border-white scale-125' : 'border-transparent'}`}
-                      style={{ backgroundColor: THEME_ACCENTS[a] }}
-                    />
-                  ))}
-                </div>
-              </div>
-              <div className="space-y-3">
-                <p className="text-[9px] uppercase font-black tracking-widest text-slate-500">Surface Logic</p>
-                <div className="grid grid-cols-1 gap-2">
-                  {(Object.keys(THEME_BGS) as BackgroundStyle[]).map(b => (
-                    <button 
-                      key={b} onClick={() => setTheme({ ...theme, bgStyle: b })}
-                      className={`px-3 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest text-left border transition-all ${theme.bgStyle === b ? 'bg-white/10 border-white/20' : 'bg-transparent border-transparent text-slate-600'}`}
-                    >
-                      {b} Strategy
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <div className="space-y-3"><p className="text-[9px] uppercase font-black tracking-widest text-slate-500">Accent Spectrum</p><div className="flex gap-3">{(Object.keys(THEME_ACCENTS) as AccentColor[]).map(a => (<button key={a} onClick={() => setTheme({ ...theme, accent: a })} className={`w-6 h-6 rounded-full border-2 transition-all ${theme.accent === a ? 'border-white scale-125' : 'border-transparent'}`} style={{ backgroundColor: THEME_ACCENTS[a] }} />))}</div></div>
+              <div className="space-y-3"><p className="text-[9px] uppercase font-black tracking-widest text-slate-500">Surface Logic</p><div className="grid grid-cols-1 gap-2">{(Object.keys(THEME_BGS) as BackgroundStyle[]).map(b => (<button key={b} onClick={() => setTheme({ ...theme, bgStyle: b })} className={`px-3 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest text-left border transition-all ${theme.bgStyle === b ? 'bg-white/10 border-white/20' : 'bg-transparent border-transparent text-slate-600'}`}>{b} Strategy</button>))}</div></div>
             </div>
           )}
         </div>
-
         <div className="h-6 w-px bg-white/10"></div>
-        
         {user ? (
           <div className="flex items-center gap-8">
             <Link to="/admin" className="text-[11px] font-black uppercase tracking-widest text-slate-500 hover:text-white transition-colors">Console</Link>
@@ -377,6 +284,28 @@ const Navbar: React.FC<{
         )}
       </div>
     </nav>
+  );
+};
+
+const SessionView: React.FC<{ sessions: Session[], theme: AppTheme }> = ({ sessions, theme }) => {
+  const { id } = useParams<{ id: string }>();
+  const session = sessions.find(s => s.id === id);
+  const accent = THEME_ACCENTS[theme.accent];
+  if (!session) return <div className="min-h-screen flex items-center justify-center"><h1 className="text-4xl font-black text-white">PROTOCOL_OFFLINE</h1></div>;
+  const visualColumns = session.columns.filter(c => c.isVisualizable);
+  return (
+    <div className="max-w-7xl mx-auto px-10 py-32 space-y-32">
+      <header className="space-y-12 animate-in fade-in slide-in-from-left-8 duration-1000">
+        <div className="flex items-center gap-8"><Link to="/" className="text-slate-500 hover:text-white transition-colors"><svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7"></path></svg></Link><span className="w-20 h-1.5 rounded-full" style={{ backgroundColor: accent }}></span><span className="text-[13px] font-black uppercase tracking-[1em]" style={{ color: accent }}>Operational_Data</span></div>
+        <div className="space-y-6"><h1 className="text-7xl font-black text-white tracking-tighter uppercase leading-[0.9]">{session.title}</h1><p className="text-slate-500 text-2xl max-w-4xl font-medium leading-relaxed">{session.description}</p></div>
+        <div className="flex gap-16 pt-8">
+          <div className="flex flex-col gap-2"><span className="text-[10px] text-slate-600 uppercase font-black tracking-widest">Tracked Samples</span><span className="text-4xl font-black text-white font-mono-plex">{session.participationCount.toLocaleString()}</span></div>
+          <div className="flex flex-col gap-2"><span className="text-[10px] text-slate-600 uppercase font-black tracking-widest">Integrity Level</span><span className="text-4xl font-black text-emerald-500 font-mono-plex">Certified</span></div>
+        </div>
+      </header>
+      <div className="space-y-40">{visualColumns.map(col => (<DashboardItem key={col.id} col={col} responses={session.responses} description={session.columnDescriptions?.[col.id] || "Analyzing segment patterns..."} theme={theme} />))}</div>
+      <CompanionChat session={session} theme={theme} />
+    </div>
   );
 };
 
@@ -397,108 +326,64 @@ const AdminPanel: React.FC<{ sessions: Session[]; onCreate: (s: Session) => void
         const csvData = e.target?.result as string;
         const { columns, responses } = parseCSV(csvData);
         const visualColumns = columns.filter(c => c.isVisualizable);
-        
         const descriptions = await generateQuestionDescriptions(responses, visualColumns);
         const correlationData = calculateCorrelationMap(responses, columns);
-
-        const newSession: Session = {
-          id: `sav-${Date.now()}`,
-          title: form.title,
-          description: form.description,
-          sourceName: selectedFile.name,
-          participationCount: responses.length,
-          lastUpdated: new Date().toISOString(),
-          status: SessionStatus.LIVE,
-          isPublic: true,
-          columns,
-          responses,
-          showCharts: true,
-          showAiInsights: true,
-          enableCsvDownload: true,
-          columnDescriptions: descriptions,
-          correlationData
-        };
-        onCreate(newSession);
+        onCreate({ id: `sav-${Date.now()}`, title: form.title, description: form.description, sourceName: selectedFile.name, participationCount: responses.length, lastUpdated: new Date().toISOString(), status: SessionStatus.LIVE, isPublic: true, columns, responses, showCharts: true, showAiInsights: true, enableCsvDownload: true, columnDescriptions: descriptions, correlationData });
         setIsCreating(false);
         setForm({ title: '', description: '' });
         setSelectedFile(null);
       };
       reader.readAsText(selectedFile);
-    } catch (e) {
-      alert("Error generating cohort node.");
-    } finally {
-      setLoading(false);
-    }
+    } catch (e) { alert("Node injection failure."); } finally { setLoading(false); }
   };
 
-  const exportSessions = () => {
-    const blob = new Blob([JSON.stringify(sessions, null, 2)], { type: 'application/json' });
+  const broadcastNode = (session: Session) => {
+    const data = btoa(unescape(encodeURIComponent(JSON.stringify(session))));
+    const blob = new Blob([JSON.stringify(session, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `savvy_node_export_${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `SAVVY_NODE_${session.title.replace(/\s+/g, '_').toUpperCase()}.json`;
     a.click();
+    alert("Node Broadcast successful. Share the generated JSON file with visitors to sync.");
   };
 
   return (
     <div className="max-w-6xl mx-auto px-10 py-24 space-y-16">
       <div className="flex justify-between items-center">
-        <div className="space-y-2">
-          <h1 className="text-5xl font-black text-white font-mono-plex tracking-tighter uppercase">Cluster_Admin</h1>
-          <p className="text-slate-500 text-xs font-mono-plex uppercase tracking-widest">Permanent Node Persistence Active</p>
-        </div>
-        <div className="flex gap-4">
-          <button onClick={exportSessions} className="px-6 py-4 rounded-3xl border border-white/10 text-[10px] font-black uppercase tracking-widest hover:bg-white/5 transition-all text-slate-400">Backup Node</button>
-          <button onClick={() => setIsCreating(true)} className="px-10 py-5 rounded-3xl font-black text-[10px] uppercase tracking-[0.2em] transition-all shadow-xl" style={{ backgroundColor: accent, color: '#000' }}>Inject Node</button>
-        </div>
+        <div className="space-y-2"><h1 className="text-5xl font-black text-white font-mono-plex tracking-tighter uppercase">Cluster_Control</h1><p className="text-slate-500 text-xs font-mono-plex uppercase tracking-widest">Persistence Protocols Active</p></div>
+        <button onClick={() => setIsCreating(true)} className="px-10 py-5 rounded-3xl font-black text-[10px] uppercase tracking-[0.2em] transition-all shadow-xl" style={{ backgroundColor: accent, color: '#000' }}>Add Data Node</button>
       </div>
-
       {isCreating && (
         <div className="glass p-12 rounded-[4rem] border-white/10 space-y-10 animate-in zoom-in-95 duration-500">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
             <div className="space-y-6">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-600 ml-4">Node Identity</label>
-                <input placeholder="Cohort Title" value={form.title} onChange={e => setForm({...form, title: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-5 text-white outline-none focus:border-white/30" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-600 ml-4">Abstract</label>
-                <textarea placeholder="Contextual description..." value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-5 text-white outline-none h-40 resize-none" />
-              </div>
+              <input placeholder="Cohort Title" value={form.title} onChange={e => setForm({...form, title: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-5 text-white outline-none focus:border-white/30" />
+              <textarea placeholder="Contextual abstract..." value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-5 text-white outline-none h-40 resize-none" />
             </div>
-            
-            <div 
-              onClick={() => fileInputRef.current?.click()}
-              className={`border-4 border-dashed rounded-[3.5rem] p-16 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-6 ${selectedFile ? 'bg-white/10 border-white/40' : 'bg-white/5 border-white/10 hover:border-white/30'}`}
-              style={selectedFile ? { borderColor: accent } : {}}
-            >
+            <div onClick={() => fileInputRef.current?.click()} className={`border-4 border-dashed rounded-[3.5rem] p-16 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-6 ${selectedFile ? 'bg-white/10 border-white/40' : 'bg-white/5 border-white/10 hover:border-white/30'}`} style={selectedFile ? { borderColor: accent } : {}}>
               <input type="file" accept=".csv" className="hidden" ref={fileInputRef} onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} />
               <div className="p-6 rounded-3xl bg-black/40" style={{ color: accent }}>{BIRD_LOGO("w-12 h-12")}</div>
               <p className="text-xl font-black text-white">{selectedFile ? selectedFile.name : 'Select CSV Protocol'}</p>
-              <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">Standard Google Forms Export Required</p>
             </div>
           </div>
-
           <div className="flex gap-6 pt-10">
-            <button onClick={handleFileUpload} disabled={loading || !selectedFile || !form.title} className="flex-1 py-6 rounded-[2rem] font-black uppercase tracking-[0.3em] text-[11px] transition-all disabled:opacity-20 shadow-2xl" style={{ backgroundColor: accent, color: '#000' }}>{loading ? 'Processing Intersections...' : 'Synchronize Node'}</button>
+            <button onClick={handleFileUpload} disabled={loading || !selectedFile || !form.title} className="flex-1 py-6 rounded-[2rem] font-black uppercase tracking-[0.3em] text-[11px] transition-all disabled:opacity-20 shadow-2xl" style={{ backgroundColor: accent, color: '#000' }}>{loading ? 'Synthesizing Patterns...' : 'Initialize Node'}</button>
             <button onClick={() => setIsCreating(false)} className="px-12 text-slate-600 font-black text-[10px] uppercase tracking-widest hover:text-white">Abort</button>
           </div>
         </div>
       )}
-
       <div className="grid gap-8">
         {sessions.map(s => (
           <div key={s.id} className="glass p-10 rounded-[3.5rem] flex items-center justify-between group hover:border-white/20 transition-all duration-500">
             <div className="space-y-3">
               <h4 className="text-3xl font-black text-white tracking-tight">{s.title}</h4>
-              <div className="flex items-center gap-6">
-                <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: accent }}>{s.participationCount} Samples Tracked</span>
-                <span className="text-slate-600 text-[10px] font-mono-plex uppercase">{s.sourceName || 'Genesis Proto'}</span>
-              </div>
+              <div className="flex items-center gap-6"><span className="text-[10px] font-black uppercase tracking-widest" style={{ color: accent }}>{s.participationCount} Samples Tracked</span></div>
             </div>
-            <button onClick={() => onDelete(s.id)} className="p-6 text-slate-700 hover:text-red-500 hover:bg-red-500/10 rounded-[2rem] transition-all">
-              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-            </button>
+            <div className="flex gap-4">
+              <button onClick={() => broadcastNode(s)} className="p-5 text-sky-500 hover:bg-sky-500/10 rounded-[2rem] transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest border border-sky-500/20">Broadcast Node</button>
+              <button onClick={() => onDelete(s.id)} className="p-5 text-slate-700 hover:text-red-500 hover:bg-red-500/10 rounded-[2rem] transition-all"><svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>
+            </div>
           </div>
         ))}
       </div>
@@ -506,99 +391,61 @@ const AdminPanel: React.FC<{ sessions: Session[]; onCreate: (s: Session) => void
   );
 };
 
-const HomePage: React.FC<{ sessions: Session[], theme: AppTheme }> = ({ sessions, theme }) => {
+const HomePage: React.FC<{ sessions: Session[], theme: AppTheme, onImport: (s: Session) => void }> = ({ sessions, theme, onImport }) => {
+  const [showImport, setShowImport] = useState(false);
   const accent = THEME_ACCENTS[theme.accent];
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const session = JSON.parse(event.target?.result as string);
+        onImport(session);
+        setShowImport(false);
+      } catch (err) { alert("Invalid Node Broadcast Package."); }
+    };
+    reader.readAsText(file);
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-10 py-32 space-y-32">
       <header className="space-y-12 animate-in fade-in slide-in-from-left-8 duration-1000">
-        <div className="flex items-center gap-8"><span className="w-20 h-1.5 rounded-full" style={{ backgroundColor: accent }}></span><span className="text-[13px] font-black uppercase tracking-[1em]" style={{ color: accent }}>Operational Insights Node</span></div>
-        <h1 className="text-[12rem] sm:text-[16rem] font-black text-white tracking-tighter uppercase leading-[0.65] -ml-4 select-none">
-          Collective <br/>Patterns.
-        </h1>
-        <p className="text-slate-500 text-4xl max-w-4xl font-light leading-relaxed tracking-tight">Neutral high-fidelity intelligence mirroring cohort summaries. Collective transparency via structural data mapping.</p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-8"><span className="w-20 h-1.5 rounded-full" style={{ backgroundColor: accent }}></span><span className="text-[13px] font-black uppercase tracking-[1em]" style={{ color: accent }}>Operational Node</span></div>
+          <button onClick={() => setShowImport(true)} className="px-6 py-3 rounded-full border border-white/10 text-[10px] font-black uppercase tracking-widest hover:bg-white/5 text-slate-400">Sync Shared Node</button>
+        </div>
+        <h1 className="text-7xl font-black text-white tracking-tighter uppercase leading-[0.9] -ml-4 select-none">Collective Analysis.</h1>
+        <p className="text-slate-500 text-3xl max-w-4xl font-light leading-relaxed tracking-tight italic">Structural intelligence mirroring cohort trajectories. Transparent collective transparency mapping.</p>
       </header>
+
+      {showImport && (
+        <div className="glass p-16 rounded-[4rem] text-center border-white/10 animate-in slide-in-from-top-4">
+          <div className="max-w-md mx-auto space-y-8">
+            <h2 className="text-3xl font-black text-white tracking-tighter uppercase">Connect to Node</h2>
+            <p className="text-slate-500 text-sm">Upload a .json Node Broadcast Package shared by a cohort owner to sync the live analytical node.</p>
+            <input type="file" accept=".json" onChange={handleImport} className="hidden" ref={fileInputRef} />
+            <button onClick={() => fileInputRef.current?.click()} className="w-full bg-white text-black font-black py-6 rounded-3xl uppercase tracking-widest text-xs">Upload Sync Package</button>
+            <button onClick={() => setShowImport(false)} className="text-[10px] text-slate-700 uppercase font-black tracking-widest hover:text-white transition-colors">Dismiss</button>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
         {sessions.filter(s => s.isPublic).map(s => (
-          <Link key={s.id} to={`/session/${s.id}`} className="group glass p-14 rounded-[5rem] hover:border-white/30 transition-all duration-1000 hover:-translate-y-8 flex flex-col h-full shadow-2xl relative overflow-hidden">
-            <div className="absolute top-14 right-14 text-[9px] font-black uppercase tracking-widest px-4 py-2 rounded-full border border-white/5" style={{ color: `${accent}80` }}>NODE :: {s.status}</div>
-            <h3 className="text-5xl font-black text-white mb-10 group-hover:text-white leading-[0.9] tracking-tighter mt-6 transition-all">{s.title}</h3>
+          <Link key={s.id} to={`/session/${s.id}`} className="group glass p-14 rounded-[5rem] hover:border-white/30 transition-all duration-1000 hover:-translate-y-6 flex flex-col h-full shadow-2xl relative overflow-hidden">
+            <div className="absolute top-14 right-14 text-[9px] font-black uppercase tracking-widest px-4 py-2 rounded-full border border-white/5" style={{ color: `${accent}80` }}>{s.status}</div>
+            <h3 className="text-4xl font-black text-white mb-10 group-hover:text-white leading-[0.9] tracking-tighter mt-6 transition-all">{s.title}</h3>
             <p className="text-slate-500 text-lg mb-20 flex-1 leading-relaxed font-medium line-clamp-3">{s.description}</p>
             <div className="pt-14 border-t border-white/5 flex justify-between items-center">
-              <div className="flex flex-col">
-                <span className="text-5xl font-black text-white font-mono-plex tracking-tighter">{s.participationCount.toLocaleString()}</span>
-                <span className="text-[10px] text-slate-700 uppercase font-black tracking-[0.4em] mt-3">Active Data Samples</span>
-              </div>
-              <div className="w-20 h-20 rounded-[2.5rem] bg-white/5 border border-white/10 flex items-center justify-center text-white/20 group-hover:rotate-45 transition-all shadow-2xl" style={{ borderLeftColor: accent }}>
-                <svg className="w-10 h-10 transition-colors group-hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
-              </div>
+              <div className="flex flex-col"><span className="text-4xl font-black text-white font-mono-plex tracking-tighter">{s.participationCount.toLocaleString()}</span><span className="text-[10px] text-slate-700 uppercase font-black tracking-[0.4em] mt-3">Samples tracked</span></div>
+              <div className="w-16 h-16 rounded-[2.5rem] bg-white/5 border border-white/10 flex items-center justify-center text-white/20 group-hover:bg-white group-hover:text-black transition-all shadow-2xl"><svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg></div>
             </div>
           </Link>
         ))}
       </div>
-    </div>
-  );
-};
-
-// Fix: Implemented missing SessionView component
-const SessionView: React.FC<{ sessions: Session[], theme: AppTheme }> = ({ sessions, theme }) => {
-  const { id } = useParams<{ id: string }>();
-  const session = sessions.find(s => s.id === id);
-  const accent = THEME_ACCENTS[theme.accent];
-
-  if (!session) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <h1 className="text-4xl font-black text-white">NODE NOT FOUND</h1>
-      </div>
-    );
-  }
-
-  const visualColumns = session.columns.filter(c => c.isVisualizable);
-
-  return (
-    <div className="max-w-7xl mx-auto px-10 py-32 space-y-32">
-      <header className="space-y-12 animate-in fade-in slide-in-from-left-8 duration-1000">
-        <div className="flex items-center gap-8">
-          <Link to="/" className="text-slate-500 hover:text-white transition-colors">
-            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7"></path></svg>
-          </Link>
-          <span className="w-20 h-1.5 rounded-full" style={{ backgroundColor: accent }}></span>
-          <span className="text-[13px] font-black uppercase tracking-[1em]" style={{ color: accent }}>Cohort_Protocol</span>
-        </div>
-        <div className="space-y-6">
-          <h1 className="text-8xl font-black text-white tracking-tighter uppercase leading-[0.9]">{session.title}</h1>
-          <p className="text-slate-500 text-2xl max-w-4xl font-medium leading-relaxed">{session.description}</p>
-        </div>
-        <div className="flex gap-16 pt-8">
-          <div className="flex flex-col gap-2">
-            <span className="text-[10px] text-slate-600 uppercase font-black tracking-widest">Active Samples</span>
-            <span className="text-4xl font-black text-white font-mono-plex">{session.participationCount.toLocaleString()}</span>
-          </div>
-          <div className="flex flex-col gap-2">
-            <span className="text-[10px] text-slate-600 uppercase font-black tracking-widest">Integrity Level</span>
-            <span className="text-4xl font-black text-emerald-500 font-mono-plex">High_Fidelity</span>
-          </div>
-          <div className="flex flex-col gap-2">
-            <span className="text-[10px] text-slate-600 uppercase font-black tracking-widest">Protocol Type</span>
-            <span className="text-4xl font-black text-white font-mono-plex">Cluster_Summary</span>
-          </div>
-        </div>
-      </header>
-
-      <div className="space-y-40">
-        {visualColumns.map(col => (
-          <DashboardItem 
-            key={col.id} 
-            col={col} 
-            responses={session.responses} 
-            description={session.columnDescriptions?.[col.id] || "No analytical synthesis available for this node segment."}
-            theme={theme}
-          />
-        ))}
-      </div>
-
-      <CompanionChat session={session} theme={theme} />
     </div>
   );
 };
@@ -608,76 +455,48 @@ const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [showLogin, setShowLogin] = useState(false);
   const [theme, setTheme] = useState<AppTheme>({ accent: 'sky', bgStyle: 'deep' });
-
-  // Sync to local storage
-  useEffect(() => {
-    Persistence.save(sessions);
-  }, [sessions]);
-
-  // Sync theme to CSS vars
-  useEffect(() => {
-    const root = document.documentElement;
-    root.style.setProperty('--accent-color', THEME_ACCENTS[theme.accent]);
-    root.style.setProperty('--bg-gradient', THEME_BGS[theme.bgStyle]);
-  }, [theme]);
-
+  useEffect(() => { Persistence.save(sessions); }, [sessions]);
+  useEffect(() => { const root = document.documentElement; root.style.setProperty('--accent-color', THEME_ACCENTS[theme.accent]); root.style.setProperty('--bg-gradient', THEME_BGS[theme.bgStyle]); }, [theme]);
   return (
     <HashRouter>
       <div className="min-h-screen transition-all duration-1000 selection:bg-white selection:text-black font-sans overflow-x-hidden">
         <Navbar user={user} theme={theme} setTheme={setTheme} onLogin={() => setShowLogin(true)} onLogout={() => setUser(null)} />
-        
         {showLogin && (
           <div className="fixed inset-0 z-[100] bg-black/98 flex items-center justify-center p-6 backdrop-blur-3xl animate-in fade-in duration-500">
             <div className="glass p-20 rounded-[5rem] w-full max-w-lg text-center border-white/10 shadow-2xl">
-              <div className="mb-12 flex justify-center" style={{ color: THEME_ACCENTS[theme.accent] }}>
-                {BIRD_LOGO("w-20 h-20")}
-              </div>
-              <h2 className="text-6xl font-black text-white mb-12 tracking-tighter uppercase font-mono-plex">Access_Key</h2>
+              <div className="mb-12 flex justify-center" style={{ color: THEME_ACCENTS[theme.accent] }}>{BIRD_LOGO("w-20 h-20")}</div>
+              <h2 className="text-6xl font-black text-white mb-12 tracking-tighter uppercase font-mono-plex">Admin_Gate</h2>
               <form onSubmit={(e) => {
                 e.preventDefault();
                 const email = (e.target as any).email.value;
                 const pass = (e.target as any).pass.value;
-                if (email === 'savvysocietyteam@gmail.com' && pass === 'SavvyisHard') {
-                   setUser(MOCK_USERS[0]);
-                   setShowLogin(false);
-                }
+                if (email === 'savvysocietyteam@gmail.com' && pass === 'SavvyisHard') { setUser(MOCK_USERS[0]); setShowLogin(false); }
               }} className="space-y-6">
-                <input name="email" placeholder="Identifier" className="w-full bg-white/5 border border-white/10 rounded-[2rem] px-8 py-6 text-white outline-none focus:border-white/30 font-bold" />
-                <input name="pass" type="password" placeholder="Protocol Key" className="w-full bg-white/5 border border-white/10 rounded-[2rem] px-8 py-6 text-white outline-none focus:border-white/30 font-bold" />
-                <button type="submit" className="w-full bg-white text-black font-black py-7 rounded-[2rem] uppercase tracking-[0.4em] text-[12px] mt-8 hover:scale-[1.02] active:scale-95 transition-all shadow-2xl">Authorize Link</button>
+                <input name="email" placeholder="Node ID" className="w-full bg-white/5 border border-white/10 rounded-[2rem] px-8 py-6 text-white outline-none focus:border-white/30 font-bold" />
+                <input name="pass" type="password" placeholder="Key Protocol" className="w-full bg-white/5 border border-white/10 rounded-[2rem] px-8 py-6 text-white outline-none focus:border-white/30 font-bold" />
+                <button type="submit" className="w-full bg-white text-black font-black py-7 rounded-[2rem] uppercase tracking-[0.4em] text-[12px] mt-8 hover:scale-[1.02] active:scale-95 transition-all shadow-2xl">Authorize</button>
               </form>
-              <button onClick={() => setShowLogin(false)} className="mt-12 text-slate-700 text-[11px] uppercase font-black tracking-widest hover:text-slate-400">Abort Security Check</button>
+              <button onClick={() => setShowLogin(false)} className="mt-12 text-slate-700 text-[11px] uppercase font-black tracking-widest hover:text-slate-400">Abort</button>
             </div>
           </div>
         )}
-
         <Routes>
-          <Route path="/" element={<HomePage sessions={sessions} theme={theme} />} />
+          <Route path="/" element={<HomePage sessions={sessions} theme={theme} onImport={s => setSessions(p => [s, ...p])} />} />
           <Route path="/session/:id" element={<SessionView sessions={sessions} theme={theme} />} />
           <Route path="/admin" element={<AdminPanel sessions={sessions} theme={theme} onCreate={s => setSessions(p => [s, ...p])} onDelete={id => setSessions(p => p.filter(x => x.id !== id))} />} />
         </Routes>
-
         <footer className="mt-80 border-t border-white/5 py-48 px-10 bg-black/60 backdrop-blur-2xl">
           <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between gap-32">
             <div className="space-y-12">
-              <div className="flex items-center gap-6">
-                <div className="w-14 h-14 rounded-3xl flex items-center justify-center text-black font-black text-3xl shadow-2xl" style={{ backgroundColor: THEME_ACCENTS[theme.accent] }}>S</div>
-                <span className="text-white font-black tracking-[0.6em] font-mono-plex uppercase text-2xl">Savvy_Sys</span>
-              </div>
-              <p className="text-slate-600 text-xl max-w-md leading-relaxed font-medium italic">Integrated operational intelligence node. Mapping academic trajectories with high-fidelity transparency.</p>
+              <div className="flex items-center gap-6"><div className="w-14 h-14 rounded-3xl flex items-center justify-center text-black font-black text-3xl shadow-2xl" style={{ backgroundColor: THEME_ACCENTS[theme.accent] }}>S</div><span className="text-white font-black tracking-[0.6em] font-mono-plex uppercase text-2xl">Savvy_Hub</span></div>
+              <p className="text-slate-600 text-xl max-w-md leading-relaxed font-medium italic">Integrated operational intelligence mirroring cohort trajectories. Structural transparency via mapping protocols.</p>
             </div>
             <div className="space-y-16 max-w-3xl">
               <div className="space-y-8">
-                <p className="text-slate-700 text-sm uppercase font-black tracking-tight leading-relaxed italic">
-                  Official results, admission lists, and personal trajectories are strictly bound to <a href="https://t.me/Savvy_Society" className="text-white hover:underline">t.me/Savvy_Society</a>. 
-                  This hub provides collective structural pattern summaries only.
-                </p>
-                <div className="flex gap-12 pt-6">
-                   <a href="https://t.me/Savvy_Society" className="text-[12px] font-black uppercase tracking-widest transition-all" style={{ color: THEME_ACCENTS[theme.accent] }}>Telegram Operational Hub</a>
-                   <a href="#" className="text-[12px] font-black text-slate-700 uppercase tracking-widest hover:text-slate-400 transition-all">Node Architecture</a>
-                </div>
+                <p className="text-slate-700 text-sm uppercase font-black tracking-tight leading-relaxed italic">Official results and individual outcomes are strictly published via <a href="https://t.me/Savvy_Society" className="text-white hover:underline">t.me/Savvy_Society</a>.</p>
+                <div className="flex gap-12 pt-6"><a href="https://t.me/Savvy_Society" className="text-[12px] font-black uppercase tracking-widest transition-all" style={{ color: THEME_ACCENTS[theme.accent] }}>Telegram Operational Hub</a></div>
               </div>
-              <p className="text-slate-800 text-[12px] font-mono-plex font-black uppercase tracking-[0.5em]">© 2024 SAVVY SOCIETY :: ANALYTIC NODE 9.1 :: PATTERNS NEUTRALIZED</p>
+              <p className="text-slate-800 text-[12px] font-mono-plex font-black uppercase tracking-[0.5em]">© 2024 SAVVY SOCIETY :: ANALYTIC NODE 9.5 :: PATTERNS NEUTRALIZED</p>
             </div>
           </div>
         </footer>
