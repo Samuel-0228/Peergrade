@@ -46,7 +46,7 @@ export const INITIAL_SESSIONS: Session[] = [
     columnDescriptions: {
       q1: "Field interest is dominated by Computer Science and Mathematics, accounting for nearly 45% of total interest across all surveyed disciplines.",
       q2: "The GPA distribution reveals a strong clustering in the 3.5 to 3.75 range, indicating a highly competitive academic baseline for the current cohort.",
-      q3: "Entrance scores show significant majority concentrations in the 530+ bracket, reflecting the high baseline of the participating cohort."
+      q3: "Entrance scores show significant variance, though the 530+ bracket remains the most prominent for respondents reporting departmental preferences."
     }
   }
 ];
