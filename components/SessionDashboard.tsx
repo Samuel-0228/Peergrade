@@ -1,6 +1,7 @@
+
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Users, Calendar, Info, FileSpreadsheet, Loader2 } from 'lucide-react';
+import { ArrowLeft, Users, Calendar, Info, FileSpreadsheet, Loader2, AlertTriangle } from 'lucide-react';
 import { storageService } from '../services/storageService';
 import { supabase } from '../services/supabaseClient';
 import { Session } from '../types';
@@ -11,6 +12,7 @@ const SessionDashboard: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchSession = async () => {
@@ -25,8 +27,8 @@ const SessionDashboard: React.FC = () => {
 
   const handleDownload = async () => {
     if (!session || !id) return;
+    setDownloadError(null);
     
-    // Check if we have a record in the database for the csv_url
     const { data, error } = await supabase
       .from('sessions')
       .select('csv_url')
@@ -34,17 +36,22 @@ const SessionDashboard: React.FC = () => {
       .single();
 
     if (error || !data?.csv_url) {
-      alert("No downloadable dataset found for this session.");
+      setDownloadError("No downloadable dataset reference found in database.");
       return;
     }
 
     setIsDownloading(true);
     try {
-      const { data: fileData, error: downloadError } = await supabase.storage
+      const { data: fileData, error: storageError } = await supabase.storage
         .from('csv-archives')
         .download(data.csv_url);
 
-      if (downloadError) throw downloadError;
+      if (storageError) {
+        if (storageError.message.includes('Bucket not found')) {
+          throw new Error("The 'csv-archives' storage bucket was not found. Please contact the administrator.");
+        }
+        throw storageError;
+      }
 
       const url = window.URL.createObjectURL(fileData);
       const link = document.createElement('a');
@@ -53,9 +60,9 @@ const SessionDashboard: React.FC = () => {
       document.body.appendChild(link);
       link.click();
       link.parentNode?.removeChild(link);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Download error:", err);
-      alert("Failed to retrieve the dataset from storage. Ensure the 'csv-archives' bucket exists.");
+      setDownloadError(err.message || "Failed to retrieve the dataset from storage.");
     } finally {
       setIsDownloading(false);
     }
@@ -172,18 +179,28 @@ const SessionDashboard: React.FC = () => {
 
       <footer className="mt-20 pt-8 border-t border-slate-800 text-center">
         <p className="text-slate-500 text-sm mb-4">All researchers may access the raw collective data for further institutional study.</p>
-        <button 
-          onClick={handleDownload}
-          disabled={isDownloading}
-          className="inline-flex items-center gap-2 px-6 py-2.5 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors text-xs font-bold uppercase tracking-widest text-white disabled:opacity-50"
-        >
-          {isDownloading ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <FileSpreadsheet className="w-4 h-4" />
+        
+        <div className="flex flex-col items-center gap-4">
+          <button 
+            onClick={handleDownload}
+            disabled={isDownloading}
+            className="inline-flex items-center gap-2 px-6 py-2.5 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors text-xs font-bold uppercase tracking-widest text-white disabled:opacity-50"
+          >
+            {isDownloading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <FileSpreadsheet className="w-4 h-4" />
+            )}
+            {isDownloading ? "Preparing Dataset..." : "Download Dataset (.CSV)"}
+          </button>
+          
+          {downloadError && (
+            <div className="flex items-center gap-2 text-rose-500 text-xs font-medium bg-rose-500/10 px-4 py-2 rounded-lg border border-rose-500/20">
+              <AlertTriangle className="w-3.5 h-3.5" />
+              {downloadError}
+            </div>
           )}
-          {isDownloading ? "Preparing Dataset..." : "Download Dataset (.CSV)"}
-        </button>
+        </div>
       </footer>
     </div>
   );

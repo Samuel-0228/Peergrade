@@ -2,6 +2,18 @@
 import { Session, QuestionAnalysis } from '../types';
 import { supabase } from './supabaseClient';
 
+const handleSupabaseError = (context: string, error: any) => {
+  if (error?.message === 'Failed to fetch') {
+    console.error(`${context}: Network connection blocked. Please check if an adblocker or firewall is blocking 'supabase.co'.`);
+  } else if (error?.message?.includes('Bucket not found')) {
+    console.error(`${context}: The 'csv-archives' bucket does not exist. Please create it in your Supabase Storage dashboard.`);
+  } else if (error?.message?.includes('violates row-level security policy')) {
+    console.error(`${context}: RLS Policy violation. Ensure you have added INSERT/SELECT policies for 'anon' or 'authenticated' roles on the bucket/table.`);
+  } else {
+    console.error(`${context}:`, error?.message || error);
+  }
+};
+
 export const storageService = {
   getSessions: async (onlyPublic = false): Promise<Session[]> => {
     try {
@@ -25,7 +37,7 @@ export const storageService = {
       const { data, error } = await query.order('created_at', { ascending: false });
       
       if (error) {
-        console.error('Supabase Error (Fetch Sessions):', error.message, '| Hint:', error.hint, '| Details:', error.details);
+        handleSupabaseError('Fetch Sessions', error);
         return [];
       }
 
@@ -40,7 +52,7 @@ export const storageService = {
         }))
       }));
     } catch (err: any) {
-      console.error('Unexpected Error in getSessions:', err.message);
+      handleSupabaseError('Unexpected Fetch Error', err);
       return [];
     }
   },
@@ -67,7 +79,7 @@ export const storageService = {
         .single();
 
       if (error) {
-        console.error('Supabase Error (Fetch Session by ID):', error.message, '| Hint:', error.hint);
+        handleSupabaseError('Fetch Session by ID', error);
         return null;
       }
 
@@ -84,29 +96,41 @@ export const storageService = {
         }))
       };
     } catch (err: any) {
-      console.error('Unexpected Error in getSessionById:', err.message);
+      handleSupabaseError('Unexpected Session Fetch Error', err);
       return null;
     }
   },
 
-  saveSession: async (session: Session, file?: File): Promise<boolean> => {
+  saveSession: async (session: Session, file?: File): Promise<{ success: boolean; error?: string }> => {
     try {
-      // 1. Upload CSV to storage if provided
       let csvUrl = '';
       if (file) {
         const fileName = `${session.id}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-        const { data: uploadData, error: uploadError } = await supabase.storage
+        const { error: uploadError } = await supabase.storage
           .from('csv-archives')
-          .upload(fileName, file);
+          .upload(fileName, file, {
+            cacheControl: '3600',
+            upsert: true
+          });
         
         if (uploadError) {
-          console.error('Storage Upload Error:', uploadError.message);
-        } else {
-          csvUrl = fileName;
+          if (uploadError.message.includes('Bucket not found')) {
+            return { 
+              success: false, 
+              error: "Storage Configuration Required: The bucket 'csv-archives' was not found. Please create a 'Public' bucket named 'csv-archives' in your Supabase Storage dashboard." 
+            };
+          }
+          if (uploadError.message.includes('row-level security policy')) {
+            return {
+              success: false,
+              error: "Security Policy Error: The 'csv-archives' bucket has RLS enabled but no upload policy for 'anon' users. Please add an 'INSERT' policy in the Supabase Storage dashboard."
+            };
+          }
+          return { success: false, error: `Storage Error: ${uploadError.message}` };
         }
+        csvUrl = fileName;
       }
 
-      // 2. Insert Session
       const { error: sessionError } = await supabase
         .from('sessions')
         .upsert({
@@ -120,11 +144,15 @@ export const storageService = {
         });
 
       if (sessionError) {
-        console.error('Session Upsert Error:', sessionError.message, sessionError.details);
-        return false;
+        if (sessionError.message.includes('row-level security policy')) {
+          return {
+            success: false,
+            error: "Database Policy Error: The 'sessions' table has RLS enabled but no insert policy for 'anon' users. Please enable 'INSERT' for the 'anon' role."
+          };
+        }
+        return { success: false, error: `Database Error (Session): ${sessionError.message}` };
       }
 
-      // 3. Insert Analyses
       const analysesToInsert = session.analyses.map(a => ({
         session_id: session.id,
         question: a.question,
@@ -138,20 +166,21 @@ export const storageService = {
         .insert(analysesToInsert);
 
       if (analysisError) {
-        console.error('Analysis Insert Error:', analysisError.message);
-        return false;
+        return { success: false, error: `Database Error (Analysis): ${analysisError.message}` };
       }
 
-      return true;
+      return { success: true };
     } catch (err: any) {
-      console.error('Unexpected Error in saveSession:', err.message);
-      return false;
+      if (err.message === 'Failed to fetch') {
+        return { success: false, error: "Network blocked: Could not reach Supabase API. Check for Adblockers." };
+      }
+      return { success: false, error: err.message };
     }
   },
 
   deleteSession: async (id: string): Promise<void> => {
     const { error } = await supabase.from('sessions').delete().eq('id', id);
-    if (error) console.error('Delete Session Error:', error.message);
+    if (error) handleSupabaseError('Delete Session', error);
   },
 
   togglePublicStatus: async (id: string, currentStatus: boolean): Promise<void> => {
@@ -159,6 +188,6 @@ export const storageService = {
       .from('sessions')
       .update({ is_public: !currentStatus })
       .eq('id', id);
-    if (error) console.error('Toggle Public Status Error:', error.message);
+    if (error) handleSupabaseError('Toggle Public Status', error);
   }
 };

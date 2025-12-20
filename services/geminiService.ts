@@ -1,7 +1,8 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 
-const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+// Always initialize GoogleGenAI with a named parameter using process.env.API_KEY directly
+const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const generateAcademicSummary = async (question: string, data: Array<{ name: string; value: number; percentage: string }>) => {
   const ai = getAI();
@@ -34,6 +35,7 @@ export const generateAcademicSummary = async (question: string, data: Array<{ na
       }
     });
 
+    // Use .text property to access the response string
     return response.text || "No summary available.";
   } catch (error) {
     console.error("Gemini Summary Error:", error);
