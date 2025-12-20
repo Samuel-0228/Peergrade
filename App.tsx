@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { HashRouter, Routes, Route, Link, useParams, useSearchParams } from 'react-router-dom';
+import { HashRouter, Routes, Route, Link, useParams } from 'react-router-dom';
 import { 
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell as RechartsCell
@@ -37,19 +37,59 @@ const CHART_COLORS = [
   '#06b6d4', '#ec4899', '#f97316', '#14b8a6', '#6366f1'
 ];
 
-// --- Persistence ---
+// --- Simulated Server-Side Logic (JSON Store) ---
+// In a production environment, these methods would be fetch/POST calls to a /api/sessions endpoint.
 const STORAGE_KEY = 'savvy_global_registry_v5';
-const Persistence = {
-  save: (sessions: Session[]) => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+
+const NodeServer = {
+  /**
+   * Fetches all sessions from the "Global JSON Store" (simulated via LocalStorage).
+   */
+  async fetchAll(): Promise<Session[]> {
+    return new Promise((resolve) => {
+      // Simulating network latency
+      setTimeout(() => {
+        const data = localStorage.getItem(STORAGE_KEY);
+        if (data) {
+          resolve(JSON.parse(data));
+        } else {
+          // If no store exists, seed with initial data
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_SESSIONS));
+          resolve(INITIAL_SESSIONS);
+        }
+      }, 300);
+    });
   },
-  load: (): Session[] => {
-    const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : INITIAL_SESSIONS;
+
+  /**
+   * Persists a new session to the Global Store.
+   */
+  async persist(session: Session): Promise<void> {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        const current = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+        const updated = [session, ...current];
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+        resolve();
+      }, 500);
+    });
+  },
+
+  /**
+   * Removes a session from the Global Store.
+   */
+  async delete(id: string): Promise<void> {
+    return new Promise((resolve) => {
+      const current = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+      const updated = current.filter((s: Session) => s.id !== id);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      resolve();
+    });
   }
 };
 
-// @fix: Added helper function to parse CSV data into survey columns and responses
+// --- Data Utilities ---
+
 const parseCSV = (csv: string): { columns: SurveyColumn[], responses: RawResponse[] } => {
   const lines = csv.split(/\r?\n/).filter(line => line.trim() !== '');
   if (lines.length < 2) return { columns: [], responses: [] };
@@ -74,19 +114,15 @@ const parseCSV = (csv: string): { columns: SurveyColumn[], responses: RawRespons
   return { columns, responses };
 };
 
-// @fix: Added helper function to calculate a cross-tabulation map for AI context
 const calculateCorrelationMap = (responses: RawResponse[], columns: SurveyColumn[]): string => {
   const correlation: Record<string, any> = {};
   const categoricalCols = columns.filter(c => c.isVisualizable);
-  
-  // Cross-tabulate pairs of columns to identify patterns (limit to 5 to avoid token bloat)
   const limit = Math.min(categoricalCols.length, 5);
   for (let i = 0; i < limit; i++) {
     for (let j = i + 1; j < limit; j++) {
       const colA = categoricalCols[i];
       const colB = categoricalCols[j];
       const key = `${colA.label} x ${colB.label}`;
-      
       const counts: Record<string, Record<string, number>> = {};
       responses.forEach(r => {
         const valA = String(r[colA.id] || 'Unknown');
@@ -210,10 +246,7 @@ const DashboardItem: React.FC<{ col: SurveyColumn, responses: RawResponse[], des
             )}
           </ResponsiveContainer>
         </div>
-
-        {/* Custom Legend Section */}
         {renderLegend()}
-
         {showDeepDive && (
           <div className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 px-12 pt-16 border-t border-white/5 animate-in fade-in slide-in-from-top-6 duration-700">
             {data.map((entry, i) => (
@@ -231,15 +264,89 @@ const DashboardItem: React.FC<{ col: SurveyColumn, responses: RawResponse[], des
           </div>
         )}
       </div>
-      
       <div className="pl-12 border-l-4 py-8 bg-white/5 rounded-r-[3rem] shadow-sm" style={{ borderLeftColor: `${accent}80` }}>
-        <p className="text-slate-400 text-xl font-medium leading-relaxed max-w-5xl tracking-tight italic">
-          {description}
-        </p>
+        <p className="text-slate-400 text-xl font-medium leading-relaxed max-w-5xl tracking-tight italic">{description}</p>
       </div>
     </div>
   );
 };
+
+const CompanionChat: React.FC<{ session: Session, theme: AppTheme }> = ({ session, theme }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [input, setInput] = useState('');
+  const [messages, setMessages] = useState<{ role: 'user' | 'model', text: string }[]>([
+    { role: 'model', text: `Node protocol active. I am Savvy Companion. Analyzing "${session.title}" datasets.` }
+  ]);
+  const [loading, setLoading] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const accentColor = THEME_ACCENTS[theme.accent];
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [messages, loading]);
+
+  const handleSend = async () => {
+    if (!input.trim() || loading) return;
+    const userMsg = input.trim();
+    setInput('');
+    setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
+    setLoading(true);
+    const history = messages.map(m => ({ role: m.role, parts: [{ text: m.text }] }));
+    history.push({ role: 'user', parts: [{ text: userMsg }] });
+    const visualColumns = session.columns.filter(c => c.isVisualizable);
+    const dataSummary = visualColumns.slice(0, 15).map(c => {
+      const { data } = getColumnDist(session.responses, c.id);
+      return `${c.label}: ${data.slice(0, 10).map(d => `${d.name}(${d.value})`).join(', ')}`;
+    }).join('; ');
+    const aiResponse = await chatWithCompanion(history, dataSummary, session.correlationData || "{}", session.title);
+    setMessages(prev => [...prev, { role: 'model', text: aiResponse || "Communication array timed out." }]);
+    setLoading(false);
+  };
+
+  return (
+    <div className="fixed bottom-10 right-10 z-[1000]">
+      {isOpen && (
+        <div className="glass w-[360px] sm:w-[480px] h-[600px] mb-6 rounded-[3rem] overflow-hidden flex flex-col border-white/10 shadow-2xl animate-in fade-in slide-in-from-bottom-10 duration-500">
+          <div className="p-7 flex items-center justify-between border-b border-white/5" style={{ backgroundColor: accentColor }}>
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-black rounded-xl flex items-center justify-center text-white">{BIRD_LOGO("w-5 h-5")}</div>
+              <span className="text-black font-black text-xs uppercase tracking-[0.2em]">Companion_Node</span>
+            </div>
+            <button onClick={() => setIsOpen(false)} className="text-black/60 hover:text-black">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+          </div>
+          <div ref={scrollRef} className="flex-1 overflow-y-auto p-7 space-y-7 bg-black/20">
+            {messages.map((m, i) => (
+              <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[85%] px-5 py-3.5 rounded-3xl text-[13px] leading-relaxed ${m.role === 'user' ? 'text-black font-bold shadow-xl' : 'bg-white/5 border border-white/5 text-slate-300'}`} style={m.role === 'user' ? { backgroundColor: accentColor } : {}}>
+                  {m.text}
+                </div>
+              </div>
+            ))}
+            {loading && <div className="flex justify-start"><div className="bg-white/5 px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest animate-pulse" style={{ color: accentColor }}>Querying Matrix...</div></div>}
+          </div>
+          <div className="p-6 bg-black/40 border-t border-white/5 flex gap-4">
+            <input 
+              value={input} onChange={e => setInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSend()}
+              placeholder="Ask about specific patterns..."
+              className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-xs text-white focus:outline-none focus:border-white/30 transition-all"
+            />
+            <button onClick={handleSend} className="p-4 rounded-2xl transition-all hover:scale-105 active:scale-95" style={{ backgroundColor: accentColor }}>
+              <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+            </button>
+          </div>
+        </div>
+      )}
+      <button onClick={() => setIsOpen(!isOpen)} className="w-18 h-18 rounded-[2.5rem] flex items-center justify-center text-black shadow-2xl hover:scale-110 active:scale-95 transition-all animate-float" style={{ backgroundColor: accentColor, width: '72px', height: '72px' }}>
+        {BIRD_LOGO("w-9 h-9")}
+      </button>
+    </div>
+  );
+};
+
+// --- Page Views ---
 
 const Navbar: React.FC<{ 
   user: User | null; theme: AppTheme; setTheme: (t: AppTheme) => void; onLogin: () => void; onLogout: () => void 
@@ -294,7 +401,7 @@ const HomePage: React.FC<{ sessions: Session[], theme: AppTheme }> = ({ sessions
             Collective <br/>Structural Insights.
           </h1>
           <p className="text-slate-500 text-3xl max-w-4xl font-light leading-relaxed tracking-tight italic opacity-90">
-            Mirroring cohort trajectories via neutral operational mapping. Select an available node to begin data synthesis.
+            Mirroring cohort trajectories via neutral operational mapping. Discover synchronized nodes below.
           </p>
         </div>
       </header>
@@ -360,7 +467,6 @@ const SessionView: React.FC<{ sessions: Session[], theme: AppTheme }> = ({ sessi
           </div>
         </div>
       </header>
-
       <div className="space-y-64">
         {visualColumns.map(col => (
           <DashboardItem 
@@ -372,11 +478,12 @@ const SessionView: React.FC<{ sessions: Session[], theme: AppTheme }> = ({ sessi
           />
         ))}
       </div>
+      <CompanionChat session={session} theme={theme} />
     </div>
   );
 };
 
-const AdminPanel: React.FC<{ sessions: Session[]; onCreate: (s: Session) => void; onDelete: (id: string) => void, theme: AppTheme }> = ({ sessions, onCreate, onDelete, theme }) => {
+const AdminPanel: React.FC<{ sessions: Session[]; onAction: () => void, theme: AppTheme }> = ({ sessions, onAction, theme }) => {
   const [isCreating, setIsCreating] = useState(false);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ title: '', description: '' });
@@ -412,14 +519,23 @@ const AdminPanel: React.FC<{ sessions: Session[]; onCreate: (s: Session) => void
           columnDescriptions: descriptions, 
           correlationData 
         };
-        onCreate(newSession);
+        // Global persistence call
+        await NodeServer.persist(newSession);
+        onAction(); // Trigger re-fetch in App
         setIsCreating(false);
         setForm({ title: '', description: '' });
         setSelectedFile(null);
-        alert("Node synchronized. Analysis results are now publicly visible to all visitors.");
+        alert("Node synchronized to Global Registry.");
       };
       reader.readAsText(selectedFile);
     } catch (e) { alert("Initialization failure."); } finally { setLoading(false); }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (window.confirm("Disconnect node from Global Registry?")) {
+      await NodeServer.delete(id);
+      onAction();
+    }
   };
 
   return (
@@ -466,10 +582,10 @@ const AdminPanel: React.FC<{ sessions: Session[]; onCreate: (s: Session) => void
               <h4 className="text-3xl font-black text-white tracking-tighter uppercase">{s.title}</h4>
               <div className="flex items-center gap-10">
                 <span className="text-[11px] font-black uppercase tracking-[0.2em]" style={{ color: accent }}>{s.participationCount} Samples Tracked</span>
-                <span className="text-[11px] text-emerald-500 font-black uppercase tracking-[0.2em] border border-emerald-500/20 px-5 py-2 rounded-full">Publicly Visible</span>
+                <span className="text-[11px] text-emerald-500 font-black uppercase tracking-[0.2em] border border-emerald-500/20 px-5 py-2 rounded-full">Public Discovery Active</span>
               </div>
             </div>
-            <button onClick={() => onDelete(s.id)} className="p-8 text-slate-800 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-all hover:scale-110">
+            <button onClick={() => handleDelete(s.id)} className="p-8 text-slate-800 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-all hover:scale-110">
               <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
             </button>
           </div>
@@ -480,17 +596,42 @@ const AdminPanel: React.FC<{ sessions: Session[]; onCreate: (s: Session) => void
 };
 
 const App: React.FC = () => {
-  const [sessions, setSessions] = useState<Session[]>(Persistence.load());
+  const [sessions, setSessions] = useState<Session[]>([]);
   const [user, setUser] = useState<User | null>(null);
   const [showLogin, setShowLogin] = useState(false);
   const [theme, setTheme] = useState<AppTheme>({ accent: 'sky', bgStyle: 'deep' });
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => { Persistence.save(sessions); }, [sessions]);
-  useEffect(() => { const root = document.documentElement; root.style.setProperty('--accent-color', THEME_ACCENTS[theme.accent]); root.style.setProperty('--bg-gradient', THEME_BGS[theme.bgStyle]); }, [theme]);
+  const refreshNodes = async () => {
+    setLoading(true);
+    const data = await NodeServer.fetchAll();
+    setSessions(data);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    refreshNodes();
+  }, []);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty('--accent-color', THEME_ACCENTS[theme.accent]);
+    root.style.setProperty('--bg-gradient', THEME_BGS[theme.bgStyle]);
+  }, [theme]);
   
   return (
     <div className="min-h-screen transition-all duration-1000 selection:bg-white selection:text-black font-sans overflow-x-hidden">
       <Navbar user={user} theme={theme} setTheme={setTheme} onLogin={() => setShowLogin(true)} onLogout={() => setUser(null)} />
+      
+      {loading && (
+        <div className="fixed inset-0 z-[200] bg-black/40 flex items-center justify-center backdrop-blur-md">
+          <div className="flex flex-col items-center gap-6">
+            <div className="w-16 h-16 border-4 border-white/10 border-t-white rounded-full animate-spin"></div>
+            <p className="text-[10px] font-black uppercase tracking-[0.5em] text-white">Synchronizing Node Matrix...</p>
+          </div>
+        </div>
+      )}
+
       {showLogin && (
         <div className="fixed inset-0 z-[100] bg-black/98 flex items-center justify-center p-8 backdrop-blur-3xl animate-in fade-in duration-500">
           <div className="glass p-24 rounded-[6rem] w-full max-w-xl text-center border-white/10 shadow-2xl">
@@ -511,11 +652,13 @@ const App: React.FC = () => {
           </div>
         </div>
       )}
+
       <Routes>
         <Route path="/" element={<HomePage sessions={sessions} theme={theme} />} />
         <Route path="/session/:id" element={<SessionView sessions={sessions} theme={theme} />} />
-        <Route path="/admin" element={<AdminPanel sessions={sessions} theme={theme} onCreate={s => setSessions(p => [s, ...p])} onDelete={id => setSessions(p => p.filter(x => x.id !== id))} />} />
+        <Route path="/admin" element={<AdminPanel sessions={sessions} onAction={refreshNodes} theme={theme} />} />
       </Routes>
+
       <footer className="mt-96 border-t border-white/5 py-64 px-12 bg-black/70 backdrop-blur-3xl">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between gap-40">
           <div className="space-y-20">
@@ -527,13 +670,13 @@ const App: React.FC = () => {
           </div>
           <div className="space-y-24 max-w-3xl">
             <div className="space-y-12">
-              <p className="text-slate-700 text-sm uppercase font-black tracking-[0.05em] leading-relaxed italic border-l-2 border-white/5 pl-10">Official results, admission lists, and outcomes are strictly published via <a href="https://t.me/Savvy_Society" className="text-white hover:underline transition-all">t.me/Savvy_Society</a>.</p>
+              <p className="text-slate-700 text-sm uppercase font-black tracking-[0.05em] leading-relaxed italic border-l-2 border-white/5 pl-10">Official results and outcomes are strictly published via <a href="https://t.me/Savvy_Society" className="text-white hover:underline transition-all">t.me/Savvy_Society</a>.</p>
               <div className="flex gap-16 pt-10">
                  <a href="https://t.me/Savvy_Society" className="text-[14px] font-black uppercase tracking-[0.5em] transition-all hover:opacity-70" style={{ color: THEME_ACCENTS[theme.accent] }}>Telegram Hub</a>
                  <a href="#" className="text-[14px] font-black text-slate-800 uppercase tracking-[0.5em] hover:text-slate-500 transition-all">Registry Integrity</a>
               </div>
             </div>
-            <p className="text-slate-800 text-[13px] font-mono-plex font-black uppercase tracking-[0.8em] opacity-30">© 2024 SAVVY SOCIETY :: CORE NODE 10.5 :: PATTERNS NEUTRALIZED</p>
+            <p className="text-slate-800 text-[13px] font-mono-plex font-black uppercase tracking-[0.8em] opacity-30">© 2024 SAVVY SOCIETY :: CORE NODE 11.0 :: PATTERNS NEUTRALIZED</p>
           </div>
         </div>
       </footer>
