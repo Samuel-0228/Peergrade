@@ -1,10 +1,9 @@
 
 import { GoogleGenAI } from "@google/genai";
 
-// Standard initialization as per guidelines
 const getAI = () => {
   if (!process.env.API_KEY) {
-    throw new Error("API_KEY_NOT_FOUND");
+    throw new Error("CONFIG_ERROR");
   }
   return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };
@@ -24,7 +23,7 @@ export const generateAcademicSummary = async (question: string, data: Array<{ na
     - Use neutral, descriptive academic language.
     - Reference concentrations and trends.
     - DO NOT give advice, recommendations, or value judgments.
-    - DO NOT use second-person language (no "you").
+    - DO NOT use second-person language.
   `;
 
   try {
@@ -37,13 +36,9 @@ export const generateAcademicSummary = async (question: string, data: Array<{ na
       }
     });
 
-    // Access the .text property directly as a string
-    return response.text || "No summary available.";
+    return response.text || "Summary not available for this data segment.";
   } catch (error: any) {
-    console.error("Gemini Summary Error:", error);
-    if (error.message === "API_KEY_NOT_FOUND") {
-      return "Summary unavailable: System API Key is missing from configuration.";
-    }
-    return "Summary analysis was not available for this data segment.";
+    console.error("Gemini Internal Error:", error);
+    return "Summary analysis not available for this session.";
   }
 };

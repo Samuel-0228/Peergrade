@@ -36,7 +36,7 @@ const SessionDashboard: React.FC = () => {
       .single();
 
     if (error || !data?.csv_url) {
-      setDownloadError("No downloadable dataset reference found in database.");
+      setDownloadError("Dataset reference not found.");
       return;
     }
 
@@ -46,9 +46,7 @@ const SessionDashboard: React.FC = () => {
         .from('csv-archives')
         .download(data.csv_url);
 
-      if (storageError) {
-        throw storageError;
-      }
+      if (storageError) throw storageError;
 
       const url = window.URL.createObjectURL(fileData);
       const link = document.createElement('a');
@@ -58,8 +56,7 @@ const SessionDashboard: React.FC = () => {
       link.click();
       link.parentNode?.removeChild(link);
     } catch (err: any) {
-      console.error("Download error:", err);
-      setDownloadError(err.message || "Failed to retrieve the dataset from storage.");
+      setDownloadError("Unable to retrieve dataset.");
     } finally {
       setIsDownloading(false);
     }
@@ -69,7 +66,7 @@ const SessionDashboard: React.FC = () => {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center px-4">
         <Loader2 className="w-10 h-10 text-indigo-500 animate-spin mb-4" />
-        <p className="text-slate-400 font-academic uppercase tracking-widest text-sm font-bold">Retrieving Academic Data...</p>
+        <p className="text-slate-400 font-academic uppercase tracking-widest text-sm font-bold">Retrieving Data...</p>
       </div>
     );
   }
@@ -78,7 +75,7 @@ const SessionDashboard: React.FC = () => {
     return (
       <div className="max-w-4xl mx-auto py-20 px-4 text-center">
         <h1 className="text-2xl font-bold text-white mb-4">Session Not Found</h1>
-        <p className="text-slate-400 mb-8">The requested academic insight session does not exist or has been retracted.</p>
+        <p className="text-slate-400 mb-8">The requested research archive is currently unavailable.</p>
         <Link to="/" className="text-indigo-400 hover:text-indigo-300 font-bold uppercase tracking-widest text-xs">Back to Archives</Link>
       </div>
     );
@@ -88,7 +85,7 @@ const SessionDashboard: React.FC = () => {
     return !summary || 
            summary.includes("No summary available") || 
            summary.includes("not available") ||
-           summary.includes("could not be generated");
+           summary.includes("unavailable");
   };
 
   return (
@@ -156,17 +153,17 @@ const SessionDashboard: React.FC = () => {
                   <div className="space-y-6">
                     <div className={`p-6 rounded-2xl border transition-all ${
                       summaryUnavailable 
-                        ? 'bg-rose-500/5 border-rose-500/10' 
+                        ? 'bg-slate-950/20 border-slate-800/40' 
                         : 'bg-slate-950/40 border-slate-800 shadow-inner'
                     }`}>
                       {summaryUnavailable ? (
                         <div className="flex items-start gap-4 text-slate-500">
-                          <FileX className="w-5 h-5 text-rose-500/40 shrink-0 mt-0.5" />
+                          <FileX className="w-5 h-5 text-slate-600 shrink-0 mt-0.5" />
                           <div>
-                            <h4 className="text-[10px] font-bold text-rose-500/60 uppercase tracking-[0.2em] mb-1">Data Insight Note</h4>
+                            <h4 className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] mb-1">Observation Note</h4>
                             <p className="text-xs font-mono-academic italic text-slate-500 leading-relaxed">
-                              An automated analytical summary was not available during the data ingestion phase for this question. 
-                              Please refer to the distribution chart for manual interpretation.
+                              An automated summary is not available for this specific data segment. 
+                              Please refer to the distribution chart for collective patterns.
                             </p>
                           </div>
                         </div>
@@ -201,7 +198,7 @@ const SessionDashboard: React.FC = () => {
 
       <footer className="mt-24 py-12 border-t border-slate-800/50 text-center">
         <p className="text-slate-500 text-sm mb-6 max-w-lg mx-auto leading-relaxed">
-          Access to the underlying raw dataset is available for authorized institutional research.
+          Access to raw datasets is available for authorized institutional research.
         </p>
         
         <div className="flex flex-col items-center gap-4">
@@ -211,15 +208,8 @@ const SessionDashboard: React.FC = () => {
             className="inline-flex items-center gap-3 px-8 py-3.5 bg-indigo-600/10 hover:bg-indigo-600/20 border border-indigo-500/30 rounded-xl transition-all text-xs font-bold uppercase tracking-[0.15em] text-indigo-400 disabled:opacity-50"
           >
             {isDownloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileSpreadsheet className="w-4 h-4" />}
-            {isDownloading ? "Retrieving..." : "Export Raw Dataset"}
+            {isDownloading ? "Processing..." : "Export Raw Dataset"}
           </button>
-          
-          {downloadError && (
-            <div className="flex items-center gap-2 text-rose-500 text-[10px] font-bold uppercase tracking-widest bg-rose-500/5 px-4 py-2 rounded-full border border-rose-500/10 animate-shake">
-              <AlertTriangle className="w-3.5 h-3.5" />
-              {downloadError}
-            </div>
-          )}
         </div>
       </footer>
     </div>

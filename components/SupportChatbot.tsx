@@ -29,9 +29,8 @@ const SupportChatbot: React.FC = () => {
     setIsLoading(true);
 
     try {
-      // Validate key exists in process.env before initialization
       if (!process.env.API_KEY) {
-        throw new Error("MISSING_KEY");
+        throw new Error("UNAVAILABLE");
       }
 
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -44,27 +43,20 @@ const SupportChatbot: React.FC = () => {
             - Explain that Savvy visualizes anonymized Google Forms response data.
             - Help users understand charts like "categorical clusters" or "distributions".
             - Be concise, academic, and professional.
-            - If asked about missing summaries, explain they fail when the system's AI key or internet connection is unstable.
+            - If asked about missing summaries, explain that some automated analyses are excluded to maintain data integrity.
           `,
           temperature: 0.7,
         }
       });
 
-      const botText = response.text || "The analysis engine returned an empty response.";
+      const botText = response.text || "I'm sorry, I couldn't process that request at this time.";
       setMessages(prev => [...prev, { role: 'bot', text: botText }]);
     } catch (error: any) {
-      console.error("Chatbot Gemini Error:", error);
-      let errorMessage = "Technical connection error. Please ensure your internet is active and any adblockers are disabled.";
-      
-      if (error.message === "MISSING_KEY") {
-        errorMessage = "Configuration Error: The system API_KEY environment variable is not set. Check your deployment secrets.";
-      } else if (error.message?.includes('403') || error.message?.includes('Permission')) {
-        errorMessage = "Security Error: The provided API key does not have permission to access the Gemini service.";
-      }
-
+      console.error("Internal Service Error:", error);
+      // Generic error message for all failures to maintain clean UI
       setMessages(prev => [...prev, { 
         role: 'bot', 
-        text: errorMessage,
+        text: "The support system is temporarily unavailable. Please try again later.",
         isError: true 
       }]);
     } finally {
@@ -123,7 +115,7 @@ const SupportChatbot: React.FC = () => {
             <div className="flex justify-start">
               <div className="bg-slate-800/50 p-3 rounded-2xl rounded-bl-none border border-slate-700 flex items-center gap-2">
                 <Loader2 className="w-3 h-3 text-indigo-500 animate-spin" />
-                <span className="text-[10px] text-slate-400 font-mono-academic">Querying engine...</span>
+                <span className="text-[10px] text-slate-400 font-mono-academic">Synthesizing...</span>
               </div>
             </div>
           )}
@@ -151,7 +143,7 @@ const SupportChatbot: React.FC = () => {
           <div className="flex items-center justify-center gap-1.5 mt-3 opacity-40">
             <Info className="w-2.5 h-2.5 text-slate-500" />
             <p className="text-[8px] text-slate-500 font-mono-academic uppercase tracking-tighter">
-              Institutional AI Hub • Powered by Gemini Flash 3
+              Institutional AI Hub • Savvy Society
             </p>
           </div>
         </div>
