@@ -5,11 +5,17 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell as RechartsCell
 } from 'recharts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { MOCK_USERS } from './constants';
 import { Session, SessionStatus, User, RawResponse, SurveyColumn, AppTheme, AccentColor, BackgroundStyle, UserRole } from './types';
 import { generateQuestionDescriptions, chatWithCompanion } from './geminiService';
 
-// --- Assets & Configuration ---
+// --- Supabase Configuration ---
+const supabaseUrl = process.env.SUPABASE_URL || '';
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || '';
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// --- Visual Constants ---
 const THEME_ACCENTS: Record<AccentColor, string> = {
   sky: '#0ea5e9',
   emerald: '#10b981',
@@ -31,61 +37,96 @@ const BIRD_LOGO = (className = "w-6 h-6") => (
   </svg>
 );
 
-// --- Robust Persistent Registry Architecture ---
-const RegistryStore = {
-  STORAGE_KEY: 'savvy_registry_core_v15',
-
-  async sync(): Promise<Session[]> {
+// --- Persistent Supabase Registry Store ---
+const SupabaseStore = {
+  /**
+   * Fetches sessions from Supabase.
+   * If isAdmin is false, only fetches sessions where is_public is true.
+   */
+  async sync(isAdmin: boolean = false): Promise<Session[]> {
     try {
-      const localData = localStorage.getItem(this.STORAGE_KEY);
-      let sessions: Session[] = localData ? JSON.parse(localData) : [];
-
-      // Seed from JSON if available
-      const response = await fetch('./sessions.json');
-      if (response.ok) {
-        const seedData = await response.json();
-        const seedIds = new Set(seedData.map((s: Session) => s.id));
-        const filteredLocal = sessions.filter(s => !seedIds.has(s.id));
-        sessions = [...seedData, ...filteredLocal];
-      }
+      let query = supabase
+        .from('sessions')
+        .select('*')
+        .order('last_updated', { ascending: false });
       
-      this.save(sessions);
-      return sessions.sort((a, b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime());
+      if (!isAdmin) {
+        query = query.eq('is_public', true);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      return (data || []).map(s => ({
+        id: s.id,
+        title: s.title,
+        description: s.description,
+        sourceName: s.source_name,
+        participationCount: s.participation_count,
+        lastUpdated: s.last_updated,
+        status: s.status as SessionStatus,
+        isPublic: s.is_public,
+        columns: s.columns as SurveyColumn[],
+        responses: s.responses as RawResponse[],
+        columnDescriptions: s.column_descriptions as Record<string, string>,
+        showCharts: true,
+        showAiInsights: true,
+        enableCsvDownload: true
+      }));
     } catch (e) {
-      console.error("Registry Sync Failure", e);
+      console.error("Supabase Sync Failure", e);
       return [];
     }
   },
 
-  save(sessions: Session[]) {
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(sessions));
-  },
-
   async commit(session: Session) {
-    const current = await this.sync();
-    this.save([session, ...current]);
+    const { error } = await supabase
+      .from('sessions')
+      .insert([{
+        id: session.id,
+        title: session.title,
+        description: session.description,
+        source_name: session.sourceName,
+        participation_count: session.participationCount,
+        last_updated: session.lastUpdated,
+        status: session.status,
+        is_public: session.isPublic,
+        columns: session.columns,
+        responses: session.responses,
+        column_descriptions: session.columnDescriptions
+      }]);
+    
+    if (error) throw error;
   },
 
-  async update(id: string, updates: Partial<Session>) {
-    const current = await this.sync();
-    const updated = current.map(s => s.id === id ? { ...s, ...updates } : s);
-    this.save(updated);
-    return updated;
+  async updateVisibility(id: string, isPublic: boolean) {
+    const { error } = await supabase
+      .from('sessions')
+      .update({ is_public: isPublic })
+      .eq('id', id);
+    
+    if (error) throw error;
   },
 
   async detach(id: string) {
-    const current = await this.sync();
-    this.save(current.filter(s => s.id !== id));
+    const { error } = await supabase
+      .from('sessions')
+      .delete()
+      .eq('id', id);
+    
+    if (error) throw error;
   }
 };
 
-// --- Data Parsers ---
+// --- Data Parsers & Utilities ---
 const parseCSV = (csv: string): { columns: SurveyColumn[], responses: RawResponse[] } => {
   const lines = csv.split(/\r?\n/).filter(line => line.trim() !== '');
   if (lines.length < 2) return { columns: [], responses: [] };
   const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
-  // Exclude common timestamp headers
-  const filteredHeaders = headers.filter(h => !h.toLowerCase().includes('timestamp'));
+  const filteredHeaders = headers.filter(h => {
+    const lower = h.toLowerCase();
+    return !lower.includes('timestamp') && !lower.includes('name') && !lower.includes('email');
+  });
   
   const columns: SurveyColumn[] = filteredHeaders.map((h, i) => ({
     id: `q${i}`,
@@ -97,11 +138,10 @@ const parseCSV = (csv: string): { columns: SurveyColumn[], responses: RawRespons
   const responses: RawResponse[] = lines.slice(1).map(line => {
     const values = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
     const response: RawResponse = {};
-    // Match filtered headers back to indices
-    headers.forEach((h, originalIndex) => {
+    headers.forEach((h, originalIdx) => {
       const col = columns.find(c => c.label === h);
       if (col) {
-        response[col.id] = values[originalIndex] || '';
+        response[col.id] = values[originalIdx] || '';
       }
     });
     return response;
@@ -115,8 +155,8 @@ const getColumnDist = (responses: RawResponse[], columnId: string) => {
   responses.forEach(r => {
     const val = r[columnId];
     if (val !== undefined && val !== null && val !== '') {
-      const stringVal = String(val).trim();
-      dist[stringVal] = (dist[stringVal] || 0) + 1;
+      const sVal = String(val).trim();
+      dist[sVal] = (dist[sVal] || 0) + 1;
       totalValid++;
     }
   });
@@ -128,42 +168,48 @@ const getColumnDist = (responses: RawResponse[], columnId: string) => {
   };
 };
 
-// --- Core UI Components ---
+// --- Specialized UI Components ---
 
-const MetadataBanner: React.FC<{ session: Session, accent: string }> = ({ session, accent }) => (
-  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 w-full animate-in fade-in slide-in-from-top-4 duration-700">
-    <div className="glass p-6 rounded-3xl border-white/5 bg-white/[0.02]">
-      <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Source Identification</p>
-      <p className="text-[13px] font-mono-plex text-white truncate font-semibold">{session.sourceName || "Internal Protocol"}</p>
+const MetadataModule: React.FC<{ session: Session, accent: string }> = ({ session, accent }) => (
+  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full animate-in fade-in slide-in-from-top-4 duration-1000">
+    <div className="glass p-6 rounded-3xl border-white/5 flex flex-col gap-2">
+      <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Protocol Source</span>
+      <span className="text-white font-mono-plex text-sm truncate">{session.sourceName || "Internal Registry"}</span>
     </div>
-    <div className="glass p-6 rounded-3xl border-white/5 bg-white/[0.02]">
-      <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Registry Lifecycle</p>
-      <p className="text-[13px] font-mono-plex text-white">{new Date(session.lastUpdated).toLocaleDateString()} — {new Date(session.lastUpdated).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+    <div className="glass p-6 rounded-3xl border-white/5 flex flex-col gap-2">
+      <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Registry Sync Date</span>
+      <span className="text-white font-mono-plex text-sm">{new Date(session.lastUpdated).toLocaleDateString()}</span>
     </div>
-    <div className="glass p-6 rounded-3xl border-white/5 bg-white/[0.02]">
-      <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Response Population</p>
-      <p className="text-[13px] font-mono-plex text-white font-bold">{session.participationCount.toLocaleString()} Analyzed Rows</p>
+    <div className="glass p-6 rounded-3xl border-white/5 flex flex-col gap-2">
+      <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Sample Population</span>
+      <span className="text-white font-mono-plex text-sm font-bold">{session.participationCount.toLocaleString()} Entries</span>
     </div>
-    <div className="glass p-6 rounded-3xl border-white/5 bg-white/[0.02]">
-      <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Availability State</p>
+    <div className="glass p-6 rounded-3xl border-white/5 flex flex-col gap-2">
+      <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Node Visibility</span>
       <div className="flex items-center gap-2">
         <div className={`w-2 h-2 rounded-full ${session.isPublic ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
-        <p className={`text-[11px] font-mono-plex uppercase font-black tracking-widest ${session.isPublic ? 'text-emerald-400' : 'text-rose-400'}`}>
-          {session.isPublic ? 'Global_Public' : 'Node_Private'}
-        </p>
+        <span className={`text-[10px] font-black uppercase tracking-widest ${session.isPublic ? 'text-emerald-500' : 'text-rose-500'}`}>
+          {session.isPublic ? 'Published' : 'Hidden'}
+        </span>
       </div>
     </div>
   </div>
 );
 
-const ChartLegend: React.FC<{ data: any[], accent: string }> = ({ data, accent }) => (
-  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 w-full px-10 pb-4">
+const MatrixLegend: React.FC<{ data: any[], accent: string }> = ({ data, accent }) => (
+  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 w-full px-10 pb-8 mt-10">
     {data.map((entry, i) => (
-      <div key={i} className="flex items-center gap-3 p-3 rounded-2xl hover:bg-white/[0.04] transition-colors group cursor-default">
-        <div className="w-3 h-3 rounded shadow-md transition-transform group-hover:scale-125" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
+      <div key={i} className="flex items-center gap-4 p-3 rounded-2xl hover:bg-white/5 transition-colors group cursor-default">
+        <div 
+          className="w-4 h-4 rounded shadow-lg transition-transform group-hover:scale-125 shrink-0" 
+          style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} 
+        />
         <div className="flex flex-col min-w-0">
-          <span className="text-[10px] text-slate-300 font-bold uppercase tracking-widest truncate">{entry.name}</span>
-          <span className="text-[9px] font-mono-plex" style={{ color: accent }}>{entry.percentage}% (n={entry.value})</span>
+          <span className="text-[10px] text-slate-300 font-black uppercase tracking-tighter truncate">{entry.name}</span>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-mono-plex font-bold" style={{ color: accent }}>{entry.percentage}%</span>
+            <span className="text-[9px] text-slate-600 font-mono-plex">n={entry.value}</span>
+          </div>
         </div>
       </div>
     ))}
@@ -174,10 +220,10 @@ const CustomTooltip = ({ active, payload, accent }: any) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
     return (
-      <div className="glass px-5 py-4 rounded-2xl border-white/10 shadow-2xl backdrop-blur-3xl">
-        <p className="text-[10px] font-black text-white uppercase tracking-widest mb-1">{data.name}</p>
-        <div className="flex items-baseline gap-3">
-          <span className="text-xl font-mono-plex font-black" style={{ color: accent }}>{data.percentage}%</span>
+      <div className="glass px-6 py-4 rounded-2xl border-white/10 shadow-2xl backdrop-blur-3xl">
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{data.name}</p>
+        <div className="flex items-baseline gap-4">
+          <span className="text-2xl font-mono-plex font-black" style={{ color: accent }}>{data.percentage}%</span>
           <span className="text-[10px] text-slate-500 font-mono-plex">n={data.value}</span>
         </div>
       </div>
@@ -186,74 +232,80 @@ const CustomTooltip = ({ active, payload, accent }: any) => {
   return null;
 };
 
-const DashboardItem: React.FC<{ col: SurveyColumn, responses: RawResponse[], description: string, theme: AppTheme }> = ({ col, responses, description, theme }) => {
+const AnalyticalReportItem: React.FC<{ 
+  col: SurveyColumn, 
+  responses: RawResponse[], 
+  description: string, 
+  theme: AppTheme 
+}> = ({ col, responses, description, theme }) => {
   const { data, totalValid } = useMemo(() => getColumnDist(responses, col.id), [responses, col.id]);
   const accent = THEME_ACCENTS[theme.accent];
   const isMany = data.length > 8;
 
   return (
-    <div className="space-y-10 animate-in fade-in slide-in-from-bottom-8 duration-700">
-      <div className="border-b border-white/5 pb-6">
-        <h4 className="text-3xl font-black text-white tracking-tighter uppercase leading-none mb-2">{col.label}</h4>
-        <p className="text-[9px] text-slate-600 font-mono-plex uppercase tracking-[0.4em]">{totalValid.toLocaleString()} samples distributed</p>
+    <div className="space-y-12 animate-in fade-in slide-in-from-bottom-12 duration-1000">
+      <div className="border-b border-white/5 pb-8">
+        <h4 className="text-4xl font-black text-white tracking-tighter uppercase leading-none mb-4">{col.label}</h4>
+        <p className="text-[10px] text-slate-600 font-mono-plex uppercase tracking-[0.5em]">{totalValid.toLocaleString()} data points synchronized</p>
       </div>
 
-      <div className="glass py-16 rounded-[4rem] border-white/5 flex flex-col items-center gap-12 shadow-2xl relative overflow-hidden">
-        <div className="w-full h-[450px]">
+      <div className="glass py-24 rounded-[5rem] border-white/5 flex flex-col items-center gap-10 shadow-2xl relative overflow-hidden bg-white/[0.01]">
+        <div className="w-full h-[500px]">
           <ResponsiveContainer width="100%" height="100%">
             {!isMany ? (
               <PieChart>
                 <Pie 
-                  data={data} innerRadius={120} outerRadius={170} paddingAngle={6} dataKey="value" stroke="none"
-                  animationBegin={0} animationDuration={1000}
+                  data={data} innerRadius={130} outerRadius={190} paddingAngle={8} dataKey="value" stroke="none"
+                  animationBegin={0} animationDuration={1200}
                 >
                   {data.map((_, i) => <RechartsCell key={`c-${i}`} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
                 </Pie>
                 <Tooltip content={<CustomTooltip accent={accent} />} />
               </PieChart>
             ) : (
-              <BarChart data={data} layout="vertical" margin={{ left: 30, right: 60, bottom: 20 }}>
+              <BarChart data={data} layout="vertical" margin={{ left: 40, right: 80, bottom: 20 }}>
                 <XAxis type="number" hide />
-                <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#64748b', fontWeight: 800, textAnchor: 'end' }} width={160} />
-                <Tooltip content={<CustomTooltip accent={accent} />} cursor={{ fill: 'rgba(255,255,255,0.02)' }} />
-                <Bar dataKey="value" radius={[0, 12, 12, 0]} barSize={30}>
+                <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b', fontWeight: 900, textAnchor: 'end' }} width={180} />
+                <Tooltip content={<CustomTooltip accent={accent} />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+                <Bar dataKey="value" radius={[0, 16, 16, 0]} barSize={34}>
                    {data.map((_, i) => <RechartsCell key={`b-${i}`} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
                 </Bar>
               </BarChart>
             )}
           </ResponsiveContainer>
         </div>
-        <ChartLegend data={data} accent={accent} />
+        
+        <MatrixLegend data={data} accent={accent} />
       </div>
 
-      <div className="pl-12 border-l-4 py-6 bg-white/[0.03] rounded-r-3xl shadow-inner border-l-sky-500/50" style={{ borderLeftColor: `${accent}80` }}>
-        <p className="text-slate-400 text-xl font-medium leading-relaxed max-w-6xl tracking-tight italic">
-          {description || "Awaiting structural analysis of this data segment..."}
+      <div className="pl-14 border-l-4 py-8 bg-white/[0.03] rounded-r-[3rem] shadow-sm italic" style={{ borderLeftColor: `${accent}90` }}>
+        <p className="text-slate-400 text-2xl font-medium leading-relaxed max-w-6xl tracking-tight">
+          {description || "Awaiting structural synthesis of this specific cohort segment..."}
         </p>
       </div>
     </div>
   );
 };
 
-// --- Main Views ---
+// --- Main Page Views ---
 
 const Navbar: React.FC<{ user: User | null; theme: AppTheme; onLogin: () => void; onLogout: () => void }> = ({ user, theme, onLogin, onLogout }) => {
   const accentColor = THEME_ACCENTS[theme.accent];
   return (
-    <nav className="glass sticky top-0 z-50 border-b border-white/5 px-10 py-7 flex items-center justify-between backdrop-blur-3xl">
-      <Link to="/" className="flex items-center gap-4 group">
-        <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-black shadow-2xl transition-all group-hover:scale-110" style={{ backgroundColor: accentColor }}>{BIRD_LOGO("w-6 h-6")}</div>
-        <span className="text-white font-black tracking-[0.4em] font-mono-plex text-[12px] uppercase">Savvy_Hub</span>
+    <nav className="glass sticky top-0 z-50 border-b border-white/5 px-12 py-8 flex items-center justify-between backdrop-blur-3xl">
+      <Link to="/" className="flex items-center gap-5 group">
+        <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-black shadow-2xl transition-all group-hover:scale-110" style={{ backgroundColor: accentColor }}>{BIRD_LOGO("w-7 h-7")}</div>
+        <span className="text-white font-black tracking-[0.5em] font-mono-plex text-[14px] uppercase">Savvy_Hub</span>
       </Link>
-      <div className="flex items-center gap-10">
-        <Link to="/" className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-white transition-colors">Registry</Link>
+      <div className="flex items-center gap-12">
+        <Link to="/" className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-500 hover:text-white transition-colors">Registry</Link>
         {user ? (
           <>
-            <Link to="/admin" className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-white transition-colors">Admin_Panel</Link>
-            <button onClick={onLogout} className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-500 hover:text-rose-400">Disconnect</button>
+            <Link to="/admin" className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-500 hover:text-white transition-colors">Admin_Core</Link>
+            <button onClick={onLogout} className="text-[11px] font-black uppercase tracking-[0.3em] text-rose-500/80 hover:text-rose-500">Detach</button>
           </>
         ) : (
-          <button onClick={onLogin} className="px-6 py-3 rounded-full bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-[0.2em] text-white hover:bg-white/10 transition-all">Authorize</button>
+          <button onClick={onLogin} className="px-8 py-4 rounded-full bg-white/5 border border-white/10 text-[11px] font-black uppercase tracking-[0.3em] text-sky-500 hover:bg-white/10 transition-all">Authorize Access</button>
         )}
       </div>
     </nav>
@@ -262,47 +314,43 @@ const Navbar: React.FC<{ user: User | null; theme: AppTheme; onLogin: () => void
 
 const HomePage: React.FC<{ sessions: Session[], theme: AppTheme, user: User | null }> = ({ sessions, theme, user }) => {
   const accent = THEME_ACCENTS[theme.accent];
-  // Admins see all sessions, visitors see only public
-  const visibleSessions = useMemo(() => {
-    if (user && (user.role === UserRole.ADMIN || user.role === UserRole.OWNER)) return sessions;
-    return sessions.filter(s => s.isPublic);
-  }, [sessions, user]);
-
   return (
-    <div className="max-w-7xl mx-auto px-10 py-32 space-y-32">
-      <header className="space-y-12">
-        <div className="flex items-center gap-10">
-          <span className="w-20 h-1 rounded-full" style={{ backgroundColor: accent }}></span>
-          <span className="text-[14px] font-black uppercase tracking-[1em]" style={{ color: accent }}>Registry Hub</span>
+    <div className="max-w-7xl mx-auto px-12 py-40 space-y-48">
+      <header className="space-y-16 animate-in fade-in slide-in-from-left-12 duration-1000">
+        <div className="flex items-center gap-12">
+          <span className="w-24 h-1 rounded-full" style={{ backgroundColor: accent }}></span>
+          <span className="text-[16px] font-black uppercase tracking-[1.4em]" style={{ color: accent }}>Global Registry</span>
         </div>
-        <div className="space-y-6">
-          <h1 className="text-6xl sm:text-7xl font-black text-white tracking-tighter uppercase leading-[0.9] max-w-5xl">Structural Insights <br/>Node Portal.</h1>
-          <p className="text-slate-500 text-2xl max-w-4xl font-light leading-relaxed tracking-tight italic">
-            Neutral operational mapping of academic cohorts. All sessions in this registry are read-only summary nodes based on collective freshman data.
+        <div className="space-y-10">
+          <h1 className="text-7xl sm:text-8xl font-black text-white tracking-tighter uppercase leading-[0.85] max-w-6xl">
+            Structural <br/>Cohort Intelligence.
+          </h1>
+          <p className="text-slate-500 text-3xl max-w-5xl font-light leading-relaxed tracking-tight italic opacity-90">
+            A public dashboard for visualizing aggregated freshman preferences and academic benchmarks. All sessions are neutral, descriptive analytical nodes.
           </p>
         </div>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
-        {visibleSessions.map(s => (
-          <Link key={s.id} to={`/session/${s.id}`} className="group glass p-14 rounded-[4.5rem] border-white/5 hover:border-white/20 transition-all duration-700 hover:-translate-y-4 flex flex-col h-full shadow-2xl relative overflow-hidden">
-            {!s.isPublic && <div className="absolute top-10 left-10 text-[8px] font-black uppercase tracking-widest px-3 py-1 bg-amber-500/20 text-amber-500 rounded-full border border-amber-500/20">Private Node</div>}
-            <h3 className="text-3xl font-black text-white mb-6 group-hover:text-sky-400 transition-colors leading-[1.0] mt-6">{s.title}</h3>
-            <p className="text-slate-500 text-lg mb-16 flex-1 line-clamp-3 leading-relaxed font-medium italic opacity-80">{s.description}</p>
-            <div className="pt-12 border-t border-white/5 flex justify-between items-center">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-16">
+        {sessions.map(s => (
+          <Link key={s.id} to={`/session/${s.id}`} className="group glass p-16 rounded-[5rem] hover:border-white/30 transition-all duration-1000 hover:-translate-y-8 flex flex-col h-full shadow-2xl relative overflow-hidden">
+            {!s.isPublic && <div className="absolute top-10 left-10 text-[9px] font-black uppercase tracking-widest px-4 py-1.5 bg-amber-500/10 text-amber-500 rounded-full border border-amber-500/10">Private Node</div>}
+            <h3 className="text-4xl font-black text-white mb-10 group-hover:text-white leading-[1.0] tracking-tighter mt-12 transition-all">{s.title}</h3>
+            <p className="text-slate-500 text-xl mb-24 flex-1 leading-relaxed font-medium line-clamp-3 italic opacity-70 group-hover:opacity-100 transition-opacity">{s.description}</p>
+            <div className="pt-16 border-t border-white/5 flex justify-between items-center">
               <div className="flex flex-col">
-                <span className="text-4xl font-black text-white font-mono-plex tracking-tighter">{s.participationCount.toLocaleString()}</span>
-                <span className="text-[9px] text-slate-700 uppercase font-black tracking-[0.4em] mt-1">Registry Samples</span>
+                <span className="text-6xl font-black text-white font-mono-plex tracking-tighter">{s.participationCount.toLocaleString()}</span>
+                <span className="text-[11px] text-slate-700 uppercase font-black tracking-[0.5em] mt-4">Verified Samples</span>
               </div>
-              <div className="w-16 h-16 rounded-[2rem] bg-white/5 border border-white/10 flex items-center justify-center text-white/20 group-hover:bg-white group-hover:text-black transition-all shadow-xl">
-                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+              <div className="w-20 h-20 rounded-[2.5rem] bg-white/5 border border-white/10 flex items-center justify-center text-white/20 group-hover:bg-white group-hover:text-black transition-all shadow-2xl">
+                <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
               </div>
             </div>
           </Link>
         ))}
-        {visibleSessions.length === 0 && (
-          <div className="col-span-full py-48 text-center border-4 border-dashed border-white/5 rounded-[5rem] flex flex-col items-center justify-center gap-6">
-            <p className="text-slate-800 font-black text-lg uppercase tracking-[0.8em]">Operational nodes undetected</p>
+        {sessions.length === 0 && (
+          <div className="col-span-full py-64 text-center border-4 border-dashed border-white/5 rounded-[6rem] flex flex-col items-center justify-center gap-10">
+            <p className="text-slate-800 font-black text-2xl uppercase tracking-[0.6em] italic">No discovery nodes detected in registry.</p>
           </div>
         )}
       </div>
@@ -315,46 +363,39 @@ const SessionView: React.FC<{ sessions: Session[], theme: AppTheme, user: User |
   const session = useMemo(() => sessions.find(s => s.id === id), [sessions, id]);
   const accent = THEME_ACCENTS[theme.accent];
 
-  if (!session) return <div className="min-h-screen flex items-center justify-center"><h1 className="text-4xl font-black text-white uppercase tracking-[1em]">Node_Offline</h1></div>;
+  if (!session) return <div className="min-h-screen flex items-center justify-center"><h1 className="text-4xl font-black text-white tracking-[0.5em] uppercase">Node_Offline</h1></div>;
   
-  // Only display columns marked as visualizable by Admin
   const visualColumns = session.columns.filter(c => c.isVisualizable);
 
   return (
-    <div className="max-w-7xl mx-auto px-10 py-32 space-y-40">
-      <header className="space-y-12">
-        <div className="flex items-center gap-10">
-          <Link to="/" className="text-slate-600 hover:text-white transition-all hover:scale-110 p-2">
-            <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 19l-7-7 7-7"></path></svg>
+    <div className="max-w-7xl mx-auto px-12 py-40 space-y-48">
+      <header className="space-y-16 animate-in fade-in slide-in-from-left-8 duration-1000">
+        <div className="flex items-center gap-12">
+          <Link to="/" className="text-slate-600 hover:text-white transition-all hover:scale-125 p-2 rounded-full hover:bg-white/5">
+            <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 19l-7-7 7-7"></path></svg>
           </Link>
-          <span className="w-20 h-1.5 rounded-full" style={{ backgroundColor: accent }}></span>
-          <span className="text-[14px] font-black uppercase tracking-[1.4em]" style={{ color: accent }}>Node Discovery</span>
+          <span className="w-24 h-2 rounded-full" style={{ backgroundColor: accent }}></span>
+          <span className="text-[16px] font-black uppercase tracking-[1.6em]" style={{ color: accent }}>Operational Node</span>
         </div>
-        <div className="space-y-6">
-          <h1 className="text-6xl font-black text-white tracking-tighter uppercase leading-[1.0]">{session.title}</h1>
-          <p className="text-slate-500 text-2xl max-w-5xl font-medium leading-relaxed italic">{session.description}</p>
+        <div className="space-y-10">
+          <h1 className="text-7xl font-black text-white tracking-tighter uppercase leading-[0.9]">{session.title}</h1>
+          <p className="text-slate-500 text-3xl max-w-6xl font-medium leading-relaxed italic opacity-90">{session.description}</p>
         </div>
         
-        <MetadataBanner session={session} accent={accent} />
+        <MetadataModule session={session} accent={accent} />
       </header>
 
-      <div className="space-y-64">
+      <div className="space-y-80">
         {visualColumns.map(col => (
-          <DashboardItem 
-            key={col.id} col={col} responses={session.responses} 
-            description={session.columnDescriptions?.[col.id] || ""} 
+          <AnalyticalReportItem 
+            key={col.id} 
+            col={col} 
+            responses={session.responses} 
+            description={session.columnDescriptions?.[col.id] || "Synthesizing structural patterns..."} 
             theme={theme} 
           />
         ))}
-        {visualColumns.length === 0 && (
-          <div className="glass p-20 rounded-[4rem] text-center">
-            <p className="text-slate-600 font-bold uppercase tracking-widest italic">All structural visualizers for this node have been restricted by Registry Control.</p>
-          </div>
-        )}
       </div>
-      
-      {/* Optional Companion Interface (Read-Only context) */}
-      <CompanionChat session={session} theme={theme} />
     </div>
   );
 };
@@ -375,7 +416,6 @@ const AdminPanel: React.FC<{ sessions: Session[]; onRefresh: () => void, theme: 
       reader.onload = async (e) => {
         const csvData = e.target?.result as string;
         const { columns, responses } = parseCSV(csvData);
-        // Analysis generated ONCE per session creation
         const visualColumns = columns.filter(c => c.isVisualizable);
         const descriptions = await generateQuestionDescriptions(responses, visualColumns);
         
@@ -387,7 +427,7 @@ const AdminPanel: React.FC<{ sessions: Session[]; onRefresh: () => void, theme: 
           participationCount: responses.length, 
           lastUpdated: new Date().toISOString(), 
           status: SessionStatus.LIVE, 
-          isPublic: false, // Default to private until published
+          isPublic: false, 
           columns, 
           responses, 
           showCharts: true, 
@@ -395,7 +435,7 @@ const AdminPanel: React.FC<{ sessions: Session[]; onRefresh: () => void, theme: 
           enableCsvDownload: true, 
           columnDescriptions: descriptions
         };
-        await RegistryStore.commit(newSession);
+        await SupabaseStore.commit(newSession);
         onRefresh();
         setIsCreating(false);
         setForm({ title: '', description: '' });
@@ -406,177 +446,81 @@ const AdminPanel: React.FC<{ sessions: Session[]; onRefresh: () => void, theme: 
   };
 
   const toggleVisibility = async (session: Session) => {
-    await RegistryStore.update(session.id, { isPublic: !session.isPublic });
-    onRefresh();
-  };
-
-  const toggleColumnVisibility = async (session: Session, columnId: string) => {
-    const updatedCols = session.columns.map(c => c.id === columnId ? { ...c, isVisualizable: !c.isVisualizable } : c);
-    await RegistryStore.update(session.id, { columns: updatedCols });
+    await SupabaseStore.updateVisibility(session.id, !session.isPublic);
     onRefresh();
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm("Detach this node from the global registry permanently?")) {
-      await RegistryStore.detach(id);
+    if (window.confirm("Detach analysis node from global registry?")) {
+      await SupabaseStore.detach(id);
       onRefresh();
     }
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-10 py-32 space-y-24">
-      <div className="flex justify-between items-center border-b border-white/10 pb-12">
-        <div className="space-y-3">
-          <h1 className="text-5xl font-black text-white font-mono-plex tracking-tighter uppercase leading-none">Registry_Control</h1>
-          <p className="text-slate-500 text-[11px] font-black uppercase tracking-[0.5em]">Central Operational Authority</p>
+    <div className="max-w-6xl mx-auto px-12 py-32 space-y-24">
+      <div className="flex justify-between items-center border-b border-white/10 pb-16">
+        <div className="space-y-4">
+          <h1 className="text-6xl font-black text-white font-mono-plex tracking-tighter uppercase leading-none">Registry_Control</h1>
+          <p className="text-slate-500 text-[12px] font-black uppercase tracking-[0.6em]">Node Operational Cluster</p>
         </div>
-        <button onClick={() => setIsCreating(true)} className="px-12 py-5 rounded-[2rem] font-black text-[11px] uppercase tracking-[0.4em] transition-all shadow-2xl bg-white text-black hover:scale-105 active:scale-95">Inject Node</button>
+        <button onClick={() => setIsCreating(true)} className="px-16 py-8 rounded-[3rem] font-black text-[12px] uppercase tracking-[0.5em] transition-all shadow-2xl bg-white text-black hover:scale-105 active:scale-95">Inject Node</button>
       </div>
 
       {isCreating && (
-        <div className="glass p-16 rounded-[4.5rem] border-white/10 space-y-12 animate-in zoom-in-95 duration-500">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
-            <div className="space-y-8">
-              <div className="space-y-3">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-6">Node Label</label>
-                <input placeholder="Cohort Title..." value={form.title} onChange={e => setForm({...form, title: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-3xl px-10 py-6 text-white outline-none focus:border-white/30 font-bold" />
+        <div className="glass p-20 rounded-[6rem] border-white/10 space-y-16 animate-in zoom-in-95 duration-1000">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-20">
+            <div className="space-y-12">
+              <div className="space-y-4">
+                <label className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-500 ml-8">Cohort Label</label>
+                <input placeholder="Analytical Title..." value={form.title} onChange={e => setForm({...form, title: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-[3rem] px-12 py-8 text-white outline-none focus:border-white/40 font-bold" />
               </div>
-              <div className="space-y-3">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-6">Structural Summary</label>
-                <textarea placeholder="Describe analytical context..." value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-3xl px-10 py-6 text-white outline-none h-40 resize-none font-medium italic" />
+              <div className="space-y-4">
+                <label className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-500 ml-8">Analytical Summary</label>
+                <textarea placeholder="Describe structural context..." value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-[3rem] px-12 py-8 text-white outline-none h-48 resize-none font-medium italic" />
               </div>
             </div>
-            <div onClick={() => fileInputRef.current?.click()} className={`border-4 border-dashed rounded-[4.5rem] p-16 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-8 ${selectedFile ? 'bg-white/10 border-white/40' : 'bg-white/5 border-white/10 hover:border-white/20'}`} style={selectedFile ? { borderColor: accent } : {}}>
+            <div onClick={() => fileInputRef.current?.click()} className={`border-4 border-dashed rounded-[6rem] p-24 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-12 ${selectedFile ? 'bg-white/10 border-white/50' : 'bg-white/5 border-white/10 hover:border-white/30'}`} style={selectedFile ? { borderColor: accent } : {}}>
               <input type="file" accept=".csv" className="hidden" ref={fileInputRef} onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} />
-              <div className="p-8 rounded-3xl bg-black/40" style={{ color: accent }}>{BIRD_LOGO("w-14 h-14")}</div>
-              <p className="text-3xl font-black text-white">{selectedFile ? selectedFile.name : 'Upload Matrix'}</p>
-              <p className="text-[10px] text-slate-700 font-bold uppercase tracking-[0.4em]">CSV Required — Headers Auto-Parsed</p>
+              <div className="p-10 rounded-[3rem] bg-black/50" style={{ color: accent }}>{BIRD_LOGO("w-20 h-20")}</div>
+              <p className="text-4xl font-black text-white">{selectedFile ? selectedFile.name : 'Upload Matrix'}</p>
+              <p className="text-[12px] text-slate-700 font-bold uppercase tracking-[0.4em]">CSV Source Matrix Required</p>
             </div>
           </div>
-          <div className="flex gap-8 pt-6">
-            <button onClick={handleFileUpload} disabled={loading || !selectedFile || !form.title} className="flex-1 py-8 rounded-[2.5rem] font-black uppercase tracking-[0.5em] text-[12px] transition-all disabled:opacity-20 shadow-2xl bg-sky-500 text-black">{loading ? 'Synthesizing...' : 'Sync to Registry'}</button>
-            <button onClick={() => setIsCreating(false)} className="px-12 text-slate-700 font-black text-[11px] uppercase tracking-widest hover:text-white transition-colors">Abort</button>
+          <div className="flex gap-10 pt-10">
+            <button onClick={handleFileUpload} disabled={loading || !selectedFile || !form.title} className="flex-1 py-10 rounded-[4rem] font-black uppercase tracking-[0.6em] text-[15px] transition-all disabled:opacity-20 shadow-2xl bg-sky-500 text-black">{loading ? 'Synthesizing...' : 'Sync to Registry'}</button>
+            <button onClick={() => setIsCreating(false)} className="px-20 text-slate-700 font-black text-[13px] uppercase tracking-widest hover:text-white transition-colors">Abort</button>
           </div>
         </div>
       )}
 
-      <div className="grid gap-10">
+      <div className="grid gap-16">
         {sessions.map(s => (
-          <div key={s.id} className="glass p-12 rounded-[4rem] flex flex-col gap-10 border-white/5 hover:border-white/10 transition-all shadow-xl group">
-            <div className="flex items-center justify-between px-4">
-              <div className="space-y-3">
-                <h4 className="text-3xl font-black text-white tracking-tighter uppercase">{s.title}</h4>
-                <div className="flex items-center gap-8">
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: accent }}>{s.participationCount} Samples</span>
-                  <div className="flex items-center gap-3">
-                    <span className={`text-[9px] font-black uppercase tracking-widest px-4 py-1 rounded-full border ${s.isPublic ? 'border-emerald-500/20 text-emerald-500 bg-emerald-500/5' : 'border-rose-500/20 text-rose-500 bg-rose-500/5'}`}>
-                      {s.isPublic ? 'Public_Registry' : 'Private_Node'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-6">
-                <button onClick={() => toggleVisibility(s)} className={`px-10 py-4 rounded-full font-black text-[10px] uppercase tracking-widest transition-all ${s.isPublic ? 'bg-rose-500 text-black' : 'bg-emerald-500 text-black'}`}>
-                  {s.isPublic ? 'Unpublish' : 'Publish'}
-                </button>
-                <button onClick={() => handleDelete(s.id)} className="p-6 text-slate-800 hover:text-rose-500 hover:bg-rose-500/10 rounded-full transition-all">
-                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                </button>
+          <div key={s.id} className="glass p-16 rounded-[6rem] flex items-center justify-between group hover:border-white/30 transition-all duration-1000 shadow-xl border-white/5">
+            <div className="space-y-6 ml-10">
+              <h4 className="text-4xl font-black text-white tracking-tighter uppercase">{s.title}</h4>
+              <div className="flex items-center gap-12">
+                <span className="text-[12px] font-black uppercase tracking-[0.3em]" style={{ color: accent }}>{s.participationCount} Samples</span>
+                <span className={`text-[11px] font-black uppercase tracking-[0.4em] border px-6 py-2.5 rounded-full ${s.isPublic ? 'border-emerald-500/20 text-emerald-500 bg-emerald-500/5' : 'border-rose-500/20 text-rose-500 bg-rose-500/5'}`}>
+                  {s.isPublic ? 'Published Discovery' : 'Private Node'}
+                </span>
+                <span className="text-[10px] text-slate-700 font-mono-plex uppercase">{new Date(s.lastUpdated).toLocaleDateString()}</span>
               </div>
             </div>
-
-            <div className="bg-white/[0.02] rounded-[2.5rem] p-8 space-y-6">
-              <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest border-b border-white/5 pb-4 ml-4">Structural Component Control</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {s.columns.map(col => (
-                  <button 
-                    key={col.id} 
-                    onClick={() => toggleColumnVisibility(s, col.id)}
-                    className={`flex items-center justify-between p-4 rounded-2xl border transition-all text-left ${col.isVisualizable ? 'border-white/10 bg-white/5' : 'border-white/5 opacity-40 bg-black/40'}`}
-                  >
-                    <span className="text-[10px] font-bold text-slate-300 truncate max-w-[140px]">{col.label}</span>
-                    <span className={`text-[8px] font-black uppercase tracking-widest ml-4 ${col.isVisualizable ? 'text-emerald-400' : 'text-slate-600'}`}>
-                      {col.isVisualizable ? 'VISIBLE' : 'HIDDEN'}
-                    </span>
-                  </button>
-                ))}
-              </div>
+            <div className="flex items-center gap-8 mr-6">
+              <button 
+                onClick={() => toggleVisibility(s)}
+                className={`px-12 py-5 rounded-full font-black text-[11px] uppercase tracking-widest transition-all ${s.isPublic ? 'bg-rose-500/20 text-rose-500 border border-rose-500/20' : 'bg-emerald-500 text-black'}`}
+              >
+                {s.isPublic ? 'Unpublish' : 'Publish'}
+              </button>
+              <button onClick={() => handleDelete(s.id)} className="p-10 text-slate-800 hover:text-rose-500 hover:bg-rose-500/10 rounded-full transition-all hover:scale-125">
+                <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+              </button>
             </div>
           </div>
         ))}
       </div>
-    </div>
-  );
-};
-
-// --- App Root Logic ---
-
-const CompanionChat: React.FC<{ session: Session, theme: AppTheme }> = ({ session, theme }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [input, setInput] = useState('');
-  const [messages, setMessages] = useState<{ role: 'user' | 'model', text: string }[]>([
-    { role: 'model', text: `Node Protocol: ${session.title}. Operational analysis active. Request structural data point synthesis.` }
-  ]);
-  const [loading, setLoading] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const accentColor = THEME_ACCENTS[theme.accent];
-
-  useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [messages, loading]);
-
-  const handleSend = async () => {
-    if (!input.trim() || loading) return;
-    const userMsg = input.trim();
-    setInput('');
-    setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
-    setLoading(true);
-    const history = messages.map(m => ({ role: m.role, parts: [{ text: m.text }] }));
-    history.push({ role: 'user', parts: [{ text: userMsg }] });
-    const aiResponse = await chatWithCompanion(history, "Summary Dataset Map", "{}", session.title);
-    setMessages(prev => [...prev, { role: 'model', text: aiResponse || "Service interruption detected." }]);
-    setLoading(false);
-  };
-
-  return (
-    <div className="fixed bottom-10 right-10 z-[1000]">
-      {isOpen && (
-        <div className="glass w-[360px] sm:w-[480px] h-[600px] mb-6 rounded-[3rem] overflow-hidden flex flex-col border-white/10 shadow-2xl animate-in fade-in slide-in-from-bottom-10 duration-500">
-          <div className="p-7 flex items-center justify-between border-b border-white/5" style={{ backgroundColor: accentColor }}>
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-black rounded-xl flex items-center justify-center text-white">{BIRD_LOGO("w-5 h-5")}</div>
-              <span className="text-black font-black text-xs uppercase tracking-[0.2em]">Savvy_Bot</span>
-            </div>
-            <button onClick={() => setIsOpen(false)} className="text-black/60 hover:text-black">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12"></path></svg>
-            </button>
-          </div>
-          <div ref={scrollRef} className="flex-1 overflow-y-auto p-7 space-y-7 bg-black/20">
-            {messages.map((m, i) => (
-              <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[85%] px-5 py-3.5 rounded-3xl text-[13px] leading-relaxed ${m.role === 'user' ? 'text-black font-bold shadow-xl' : 'bg-white/5 border border-white/5 text-slate-300'}`} style={m.role === 'user' ? { backgroundColor: accentColor } : {}}>
-                  {m.text}
-                </div>
-              </div>
-            ))}
-            {loading && <div className="flex justify-start"><div className="bg-white/5 px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest animate-pulse" style={{ color: accentColor }}>Analyzing Matrix...</div></div>}
-          </div>
-          <div className="p-6 bg-black/40 border-t border-white/5 flex gap-4">
-            <input 
-              value={input} onChange={e => setInput(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleSend()}
-              placeholder="Query patterns..."
-              className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-xs text-white outline-none focus:border-white/30"
-            />
-            <button onClick={handleSend} className="p-4 rounded-2xl transition-all hover:scale-105 active:scale-95" style={{ backgroundColor: accentColor }}>
-              <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
-            </button>
-          </div>
-        </div>
-      )}
-      <button onClick={() => setIsOpen(!isOpen)} className="w-18 h-18 rounded-[2.5rem] flex items-center justify-center text-black shadow-2xl hover:scale-110 active:scale-95 transition-all animate-float" style={{ backgroundColor: accentColor, width: '72px', height: '72px' }}>
-        {BIRD_LOGO("w-9 h-9")}
-      </button>
     </div>
   );
 };
@@ -588,15 +532,18 @@ const App: React.FC = () => {
   const [theme] = useState<AppTheme>({ accent: 'sky', bgStyle: 'deep' });
   const [registryLoading, setRegistryLoading] = useState(true);
 
-  const refreshRegistry = async () => {
+  const refreshRegistry = async (isAdmin: boolean) => {
     setRegistryLoading(true);
-    const data = await RegistryStore.sync();
+    const data = await SupabaseStore.sync(isAdmin);
     setSessions(data);
     setRegistryLoading(false);
   };
 
   useEffect(() => {
-    refreshRegistry();
+    refreshRegistry(!!user);
+  }, [user]);
+
+  useEffect(() => {
     const root = document.documentElement;
     root.style.setProperty('--accent-color', THEME_ACCENTS[theme.accent]);
   }, [theme]);
@@ -606,30 +553,30 @@ const App: React.FC = () => {
       <Navbar user={user} theme={theme} onLogin={() => setShowLogin(true)} onLogout={() => setUser(null)} />
       
       {registryLoading && (
-        <div className="fixed inset-0 z-[200] bg-black/50 flex items-center justify-center backdrop-blur-xl">
-          <div className="flex flex-col items-center gap-8">
-            <div className="w-20 h-20 border-[6px] border-white/10 border-t-white rounded-full animate-spin"></div>
-            <p className="text-[12px] font-black uppercase tracking-[0.8em] text-white animate-pulse">Synchronizing Global Registry...</p>
+        <div className="fixed inset-0 z-[200] bg-black/50 flex items-center justify-center backdrop-blur-2xl">
+          <div className="flex flex-col items-center gap-10">
+            <div className="w-24 h-24 border-[8px] border-white/10 border-t-white rounded-full animate-spin"></div>
+            <p className="text-[14px] font-black uppercase tracking-[1em] text-white animate-pulse">Synchronizing Registry Core...</p>
           </div>
         </div>
       )}
 
       {showLogin && (
-        <div className="fixed inset-0 z-[100] bg-black/98 flex items-center justify-center p-12 backdrop-blur-3xl animate-in fade-in duration-500">
-          <div className="glass p-20 rounded-[5rem] w-full max-w-xl text-center border-white/10 shadow-2xl">
-            <h2 className="text-6xl font-black text-white mb-16 tracking-tighter uppercase font-mono-plex">Node_Auth</h2>
+        <div className="fixed inset-0 z-[100] bg-black/98 flex items-center justify-center p-12 backdrop-blur-3xl animate-in fade-in duration-700">
+          <div className="glass p-24 rounded-[7rem] w-full max-w-2xl text-center border-white/10 shadow-2xl bg-white/[0.01]">
+            <h2 className="text-7xl font-black text-white mb-20 tracking-tighter uppercase font-mono-plex">Admin_Gate</h2>
             <form onSubmit={(e) => {
               e.preventDefault();
               const email = (e.target as any).email.value;
               const pass = (e.target as any).pass.value;
               if (email === 'savvysocietyteam@gmail.com' && pass === 'SavvyisHard') { setUser(MOCK_USERS[0]); setShowLogin(false); }
-              else alert("Security protocol failure.");
-            }} className="space-y-8">
-              <input name="email" placeholder="Identifier" className="w-full bg-white/5 border border-white/10 rounded-[3rem] px-10 py-8 text-white outline-none focus:border-white/30 font-bold text-center tracking-widest text-xs uppercase" />
-              <input name="pass" type="password" placeholder="Key Sequence" className="w-full bg-white/5 border border-white/10 rounded-[3rem] px-10 py-8 text-white outline-none focus:border-white/30 font-bold text-center tracking-widest text-xs" />
-              <button type="submit" className="w-full bg-white text-black font-black py-8 rounded-[3rem] uppercase tracking-[0.6em] text-[13px] mt-10 hover:scale-[1.03] active:scale-95 transition-all shadow-2xl">Authorize Cluster</button>
+              else alert("Security Protocol Failure.");
+            }} className="space-y-10">
+              <input name="email" placeholder="Identifier" className="w-full bg-white/5 border border-white/10 rounded-[3.5rem] px-12 py-10 text-white outline-none focus:border-white/40 font-bold text-center tracking-[0.4em] uppercase text-xs" />
+              <input name="pass" type="password" placeholder="Key Sequence" className="w-full bg-white/5 border border-white/10 rounded-[3.5rem] px-12 py-10 text-white outline-none focus:border-white/40 font-bold text-center tracking-[0.4em] text-xs" />
+              <button type="submit" className="w-full bg-white text-black font-black py-10 rounded-[3.5rem] uppercase tracking-[0.8em] text-[16px] mt-16 hover:scale-[1.02] active:scale-95 transition-all shadow-2xl">Authorize Cluster</button>
             </form>
-            <button onClick={() => setShowLogin(false)} className="mt-16 text-slate-800 text-[11px] uppercase font-black tracking-widest hover:text-slate-500 transition-colors">Abort Access</button>
+            <button onClick={() => setShowLogin(false)} className="mt-20 text-slate-800 text-[14px] uppercase font-black tracking-[0.5em] hover:text-slate-500 transition-colors">Abort Session</button>
           </div>
         </div>
       )}
@@ -637,27 +584,27 @@ const App: React.FC = () => {
       <Routes>
         <Route path="/" element={<HomePage sessions={sessions} theme={theme} user={user} />} />
         <Route path="/session/:id" element={<SessionView sessions={sessions} theme={theme} user={user} />} />
-        <Route path="/admin" element={user ? <AdminPanel sessions={sessions} onRefresh={refreshRegistry} theme={theme} /> : <Navigate to="/" />} />
+        <Route path="/admin" element={user ? <AdminPanel sessions={sessions} onRefresh={() => refreshRegistry(true)} theme={theme} /> : <Navigate to="/" />} />
       </Routes>
 
-      <footer className="mt-96 border-t border-white/5 py-64 px-12 bg-black/80 backdrop-blur-3xl">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between gap-40">
-          <div className="space-y-20">
-            <div className="flex items-center gap-10">
-              <div className="w-20 h-20 rounded-[2.5rem] flex items-center justify-center text-black font-black text-5xl shadow-2xl" style={{ backgroundColor: THEME_ACCENTS[theme.accent] }}>S</div>
-              <span className="text-white font-black tracking-[0.6em] font-mono-plex uppercase text-4xl">Savvy_Sys</span>
+      <footer className="mt-96 border-t border-white/5 py-80 px-12 bg-black/90 backdrop-blur-3xl">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between gap-48">
+          <div className="space-y-28">
+            <div className="flex items-center gap-12">
+              <div className="w-24 h-24 rounded-[3.5rem] flex items-center justify-center text-black font-black text-6xl shadow-2xl" style={{ backgroundColor: THEME_ACCENTS[theme.accent] }}>S</div>
+              <span className="text-white font-black tracking-[1em] font-mono-plex uppercase text-5xl">Savvy_Hub</span>
             </div>
-            <p className="text-slate-600 text-2xl max-w-xl leading-relaxed font-medium italic opacity-60">Integrated structural intelligence hub mirroring cohort trajectories. Providing architectural transparency via neutral mapping protocols.</p>
+            <p className="text-slate-600 text-3xl max-w-2xl leading-relaxed font-medium italic opacity-50">Integrated structural intelligence nodes mirroring cohort trajectories. Neutral operational mapping for admission transparency.</p>
           </div>
-          <div className="space-y-24 max-w-3xl">
-            <div className="space-y-12">
-              <p className="text-slate-700 text-sm uppercase font-black tracking-[0.05em] border-l-2 border-white/5 pl-10 italic">Admission results and structural outcomes are exclusively published via <a href="https://t.me/Savvy_Society" className="text-white hover:underline transition-all">t.me/Savvy_Society</a>.</p>
-              <div className="flex gap-16 pt-10">
-                 <a href="https://t.me/Savvy_Society" className="text-[14px] font-black uppercase tracking-[0.5em] transition-all hover:opacity-70" style={{ color: THEME_ACCENTS[theme.accent] }}>Telegram_Node</a>
-                 <a href="#" className="text-[14px] font-black text-slate-800 uppercase tracking-[0.5em] hover:text-slate-500 transition-all">Registry_Core</a>
+          <div className="space-y-32 max-w-3xl">
+            <div className="space-y-20">
+              <p className="text-slate-700 text-[13px] uppercase font-black tracking-[0.1em] leading-relaxed italic border-l-4 border-white/5 pl-12 opacity-60">Admission protocols and final cohort lists are exclusively released via <a href="https://t.me/Savvy_Society" className="text-white hover:underline transition-all">t.me/Savvy_Society</a>.</p>
+              <div className="flex gap-20 pt-10">
+                 <a href="https://t.me/Savvy_Society" className="text-[16px] font-black uppercase tracking-[0.6em] transition-all hover:opacity-70" style={{ color: THEME_ACCENTS[theme.accent] }}>Telegram_Core</a>
+                 <a href="#" className="text-[16px] font-black text-slate-800 uppercase tracking-[0.6em] hover:text-slate-500 transition-all">Registry_Transparency</a>
               </div>
             </div>
-            <p className="text-slate-800 text-[13px] font-mono-plex font-black uppercase tracking-[0.8em] opacity-30">© 2024 SAVVY SOCIETY :: REGISTRY NODE 15.0 :: PATTERNS NEUTRALIZED</p>
+            <p className="text-slate-800 text-[14px] font-mono-plex font-black uppercase tracking-[1em] opacity-30">© 2024 SAVVY SOCIETY :: REGISTRY 17.0 :: SUPABASE PERSISTENCE ACTIVE</p>
           </div>
         </div>
       </footer>
