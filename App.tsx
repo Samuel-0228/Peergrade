@@ -37,48 +37,51 @@ const CHART_COLORS = [
   '#06b6d4', '#ec4899', '#f97316', '#14b8a6', '#6366f1'
 ];
 
-// --- Session Registry Store ---
-// This class manages the connection between the sessions.json (static) and LocalStorage (persistence)
+// --- Persistent Global Registry Store ---
 const RegistryStore = {
-  STORAGE_KEY: 'savvy_registry_v11',
+  STORAGE_KEY: 'savvy_global_registry_v12',
 
   /**
-   * Fetches all nodes. Prioritizes local overrides, falls back to sessions.json
+   * Synchronizes the local node state with the master registry.
    */
   async sync(): Promise<Session[]> {
     try {
       const localData = localStorage.getItem(this.STORAGE_KEY);
-      if (localData) return JSON.parse(localData);
+      let sessions: Session[] = localData ? JSON.parse(localData) : [];
 
-      // Fetch seed data if nothing exists locally
+      // Always try to fetch seed data from sessions.json to ensure baseline is present
       const response = await fetch('./sessions.json');
-      if (!response.ok) throw new Error("Registry file not found");
-      const seedData = await response.json();
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(seedData));
-      return seedData;
+      if (response.ok) {
+        const seedData = await response.json();
+        // Merge seed data with local data, preventing duplicates by ID
+        const seedIds = new Set(seedData.map((s: Session) => s.id));
+        const filteredLocal = sessions.filter(s => !seedIds.has(s.id));
+        sessions = [...seedData, ...filteredLocal];
+      }
+      
+      this.save(sessions);
+      return sessions;
     } catch (e) {
       console.error("Registry Sync Failure:", e);
       return [];
     }
   },
 
-  /**
-   * Commits a new node to the registry
-   */
+  save(sessions: Session[]) {
+    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(sessions));
+  },
+
   async commit(session: Session): Promise<Session[]> {
     const current = await this.sync();
     const updated = [session, ...current];
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(updated));
+    this.save(updated);
     return updated;
   },
 
-  /**
-   * Detaches a node from the registry
-   */
   async detach(id: string): Promise<Session[]> {
     const current = await this.sync();
     const updated = current.filter(s => s.id !== id);
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(updated));
+    this.save(updated);
     return updated;
   }
 };
@@ -159,7 +162,7 @@ const DashboardItem: React.FC<{ col: SurveyColumn, responses: RawResponse[], des
           className="text-[10px] font-black uppercase tracking-widest px-8 py-4 rounded-full border transition-all hover:scale-105 active:scale-95 shadow-xl"
           style={{ borderColor: `${accent}40`, color: accent, backgroundColor: `${accent}08` }}
         >
-          {showDeepDive ? 'Collapse Synthesis' : 'Breakdown Matrix'}
+          {showDeepDive ? 'Collapse Matrix' : 'Full Breakdown'}
         </button>
       </div>
 
@@ -200,13 +203,14 @@ const DashboardItem: React.FC<{ col: SurveyColumn, responses: RawResponse[], des
           </ResponsiveContainer>
         </div>
         
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 w-full px-12 pb-4">
-          {data.slice(0, 10).map((entry, i) => (
-            <div key={i} className="flex items-center gap-3">
-              <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
+        {/* Color Mapped Legend */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 w-full px-12 pb-4">
+          {data.map((entry, i) => (
+            <div key={i} className="flex items-center gap-4 group cursor-default">
+              <div className="w-3.5 h-3.5 rounded-lg shadow-lg transition-transform group-hover:scale-125" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
               <div className="flex flex-col min-w-0">
-                <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest truncate">{entry.name}</span>
-                <span className="text-[9px] font-mono-plex text-slate-700">{entry.percentage}%</span>
+                <span className="text-[10px] text-slate-300 font-black uppercase tracking-widest truncate">{entry.name}</span>
+                <span className="text-[9px] font-mono-plex text-slate-600">{entry.percentage}%</span>
               </div>
             </div>
           ))}
@@ -236,92 +240,26 @@ const DashboardItem: React.FC<{ col: SurveyColumn, responses: RawResponse[], des
   );
 };
 
-const CompanionChat: React.FC<{ session: Session, theme: AppTheme }> = ({ session, theme }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [input, setInput] = useState('');
-  const [messages, setMessages] = useState<{ role: 'user' | 'model', text: string }[]>([
-    { role: 'model', text: `Structural Protocol: ${session.title}. I am Savvy Companion. Analyzing datasets.` }
-  ]);
-  const [loading, setLoading] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const accentColor = THEME_ACCENTS[theme.accent];
-
-  const handleSend = async () => {
-    if (!input.trim() || loading) return;
-    const userMsg = input.trim();
-    setInput('');
-    setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
-    setLoading(true);
-    const history = messages.map(m => ({ role: m.role, parts: [{ text: m.text }] }));
-    history.push({ role: 'user', parts: [{ text: userMsg }] });
-    const aiResponse = await chatWithCompanion(history, "Simulated summary of session data.", "{}", session.title);
-    setMessages(prev => [...prev, { role: 'model', text: aiResponse || "Service interruption detected." }]);
-    setLoading(false);
-  };
-
-  return (
-    <div className="fixed bottom-10 right-10 z-[1000]">
-      {isOpen && (
-        <div className="glass w-[360px] sm:w-[480px] h-[600px] mb-6 rounded-[3rem] overflow-hidden flex flex-col border-white/10 shadow-2xl animate-in fade-in slide-in-from-bottom-10 duration-500">
-          <div className="p-7 flex items-center justify-between border-b border-white/5" style={{ backgroundColor: accentColor }}>
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-black rounded-xl flex items-center justify-center text-white">{BIRD_LOGO("w-5 h-5")}</div>
-              <span className="text-black font-black text-xs uppercase tracking-[0.2em]">Savvy_Bot</span>
-            </div>
-            <button onClick={() => setIsOpen(false)} className="text-black/60 hover:text-black">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12"></path></svg>
-            </button>
-          </div>
-          <div ref={scrollRef} className="flex-1 overflow-y-auto p-7 space-y-7 bg-black/20">
-            {messages.map((m, i) => (
-              <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[85%] px-5 py-3.5 rounded-3xl text-[13px] leading-relaxed ${m.role === 'user' ? 'text-black font-bold shadow-xl' : 'bg-white/5 border border-white/5 text-slate-300'}`} style={m.role === 'user' ? { backgroundColor: accentColor } : {}}>
-                  {m.text}
-                </div>
-              </div>
-            ))}
-            {loading && <div className="flex justify-start"><div className="bg-white/5 px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest animate-pulse" style={{ color: accentColor }}>Analyzing...</div></div>}
-          </div>
-          <div className="p-6 bg-black/40 border-t border-white/5 flex gap-4">
-            <input 
-              value={input} onChange={e => setInput(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleSend()}
-              placeholder="Ask about specific patterns..."
-              className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-xs text-white focus:outline-none focus:border-white/30 transition-all"
-            />
-            <button onClick={handleSend} className="p-4 rounded-2xl transition-all hover:scale-105 active:scale-95" style={{ backgroundColor: accentColor }}>
-              <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
-            </button>
-          </div>
-        </div>
-      )}
-      <button onClick={() => setIsOpen(!isOpen)} className="w-18 h-18 rounded-[2.5rem] flex items-center justify-center text-black shadow-2xl hover:scale-110 active:scale-95 transition-all animate-float" style={{ backgroundColor: accentColor, width: '72px', height: '72px' }}>
-        {BIRD_LOGO("w-9 h-9")}
-      </button>
-    </div>
-  );
-};
-
 // --- View Pages ---
 
 const Navbar: React.FC<{ 
-  user: User | null; theme: AppTheme; setTheme: (t: AppTheme) => void; onLogin: () => void; onLogout: () => void 
-}> = ({ user, theme, setTheme, onLogin, onLogout }) => {
+  user: User | null; theme: AppTheme; onLogin: () => void; onLogout: () => void 
+}> = ({ user, theme, onLogin, onLogout }) => {
   const accentColor = THEME_ACCENTS[theme.accent];
   return (
     <nav className="glass sticky top-0 z-50 border-b border-white/5 px-12 py-7 flex items-center justify-between backdrop-blur-3xl">
       <Link to="/" className="flex items-center gap-4 group">
         <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-black shadow-2xl transition-all group-hover:scale-110" style={{ backgroundColor: accentColor }}>{BIRD_LOGO("w-6 h-6")}</div>
-        <span className="text-white font-black tracking-[0.5em] font-mono-plex text-[13px] uppercase">Savvy_Registry</span>
+        <span className="text-white font-black tracking-[0.5em] font-mono-plex text-[13px] uppercase">Savvy_Hub</span>
       </Link>
       <div className="flex items-center gap-10">
         {user ? (
           <div className="flex items-center gap-10">
             <Link to="/admin" className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 hover:text-white transition-colors">Cluster_Control</Link>
-            <button onClick={onLogout} className="text-[10px] font-black uppercase tracking-[0.3em] text-red-500/70 hover:text-red-500">Detach</button>
+            <button onClick={onLogout} className="text-[10px] font-black uppercase tracking-[0.3em] text-red-500/70 hover:text-red-500">Disconnect</button>
           </div>
         ) : (
-          <button onClick={onLogin} className="text-[10px] font-black uppercase tracking-[0.3em] text-sky-500 hover:text-sky-400">Admin_Access</button>
+          <button onClick={onLogin} className="text-[10px] font-black uppercase tracking-[0.3em] text-sky-500 hover:text-sky-400">Admin_Gate</button>
         )}
       </div>
     </nav>
@@ -341,10 +279,10 @@ const HomePage: React.FC<{ sessions: Session[], theme: AppTheme }> = ({ sessions
         </div>
         <div className="space-y-8">
           <h1 className="text-6xl sm:text-7xl font-black text-white tracking-tighter uppercase leading-[0.9] max-w-5xl select-none">
-            Structural <br/>Insight Portal.
+            Structural <br/>Discovery Hub.
           </h1>
           <p className="text-slate-500 text-3xl max-w-4xl font-light leading-relaxed tracking-tight italic opacity-90">
-            Neutral operational mapping of academic cohorts. All sessions in this hub are synced to the global registry for public discovery.
+            Global operational registry for academic cohort analysis. Select an active node to begin structural synthesis.
           </p>
         </div>
       </header>
@@ -358,7 +296,7 @@ const HomePage: React.FC<{ sessions: Session[], theme: AppTheme }> = ({ sessions
             <div className="pt-16 border-t border-white/5 flex justify-between items-center">
               <div className="flex flex-col">
                 <span className="text-5xl font-black text-white font-mono-plex tracking-tighter">{s.participationCount.toLocaleString()}</span>
-                <span className="text-[11px] text-slate-700 uppercase font-black tracking-[0.5em] mt-4">Registry Samples</span>
+                <span className="text-[11px] text-slate-700 uppercase font-black tracking-[0.5em] mt-4">Verified Samples</span>
               </div>
               <div className="w-18 h-18 rounded-[2.5rem] bg-white/5 border border-white/10 flex items-center justify-center text-white/20 group-hover:bg-white group-hover:text-black transition-all shadow-2xl" style={{ width: '72px', height: '72px' }}>
                 <svg className="w-9 h-9" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
@@ -394,6 +332,24 @@ const SessionView: React.FC<{ sessions: Session[], theme: AppTheme }> = ({ sessi
           <h1 className="text-6xl font-black text-white tracking-tighter uppercase leading-[1.0]">{session.title}</h1>
           <p className="text-slate-500 text-3xl max-w-5xl font-medium leading-relaxed italic opacity-90">{session.description}</p>
         </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 pt-10">
+           <div className="glass p-8 rounded-[3rem] border-white/5">
+             <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Source Protocol</p>
+             <p className="text-[12px] font-mono-plex text-white truncate">{session.sourceName || "Manual Injection"}</p>
+           </div>
+           <div className="glass p-8 rounded-[3rem] border-white/5">
+             <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Registry Sync</p>
+             <p className="text-[12px] font-mono-plex text-white">{new Date(session.lastUpdated).toLocaleString()}</p>
+           </div>
+           <div className="glass p-8 rounded-[3rem] border-white/5">
+             <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Sample Volume</p>
+             <p className="text-[12px] font-mono-plex text-white">{session.participationCount.toLocaleString()} Entries</p>
+           </div>
+           <div className="glass p-8 rounded-[3rem] border-white/5">
+             <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Discovery State</p>
+             <p className="text-[12px] font-mono-plex text-emerald-400 uppercase font-black">Global Public</p>
+           </div>
+        </div>
       </header>
 
       <div className="space-y-64">
@@ -402,12 +358,11 @@ const SessionView: React.FC<{ sessions: Session[], theme: AppTheme }> = ({ sessi
             key={col.id} 
             col={col} 
             responses={session.responses} 
-            description={session.columnDescriptions?.[col.id] || "Synthesizing descriptive patterns for this structural node..."} 
+            description={session.columnDescriptions?.[col.id] || "Synthesizing descriptive patterns for this structural node segment..."} 
             theme={theme} 
           />
         ))}
       </div>
-      <CompanionChat session={session} theme={theme} />
     </div>
   );
 };
@@ -453,11 +408,11 @@ const AdminPanel: React.FC<{ sessions: Session[]; onRefresh: () => void, theme: 
         setSelectedFile(null);
       };
       reader.readAsText(selectedFile);
-    } catch (e) { alert("Initialization failure."); } finally { setLoading(false); }
+    } catch (e) { alert("Registry Commit failure."); } finally { setLoading(false); }
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm("Detach this node from the public registry?")) {
+    if (window.confirm("Detach node from global registry?")) {
       await RegistryStore.detach(id);
       onRefresh();
     }
@@ -470,7 +425,7 @@ const AdminPanel: React.FC<{ sessions: Session[]; onRefresh: () => void, theme: 
           <h1 className="text-5xl font-black text-white font-mono-plex tracking-tighter uppercase">Registry_Admin</h1>
           <p className="text-slate-500 text-[12px] font-black uppercase tracking-[0.5em]">Node Operational Control</p>
         </div>
-        <button onClick={() => setIsCreating(true)} className="px-14 py-6 rounded-[2.5rem] font-black text-[11px] uppercase tracking-[0.4em] transition-all shadow-2xl hover:scale-105 active:scale-95" style={{ backgroundColor: accent, color: '#000' }}>Inject New Node</button>
+        <button onClick={() => setIsCreating(true)} className="px-14 py-6 rounded-[2.5rem] font-black text-[11px] uppercase tracking-[0.4em] transition-all shadow-2xl hover:scale-105 active:scale-95" style={{ backgroundColor: accent, color: '#000' }}>Inject Node</button>
       </div>
 
       {isCreating && (
@@ -487,7 +442,7 @@ const AdminPanel: React.FC<{ sessions: Session[]; onRefresh: () => void, theme: 
             </div>
           </div>
           <div className="flex gap-10 pt-10">
-            <button onClick={handleFileUpload} disabled={loading || !selectedFile || !form.title} className="flex-1 py-8 rounded-[3rem] font-black uppercase tracking-[0.5em] text-[13px] transition-all disabled:opacity-20 shadow-2xl" style={{ backgroundColor: accent, color: '#000' }}>{loading ? 'Synthesizing...' : 'Sync to Registry'}</button>
+            <button onClick={handleFileUpload} disabled={loading || !selectedFile || !form.title} className="flex-1 py-8 rounded-[3rem] font-black uppercase tracking-[0.5em] text-[13px] transition-all disabled:opacity-20 shadow-2xl" style={{ backgroundColor: accent, color: '#000' }}>{loading ? 'Committing...' : 'Finalize Registry Commit'}</button>
             <button onClick={() => setIsCreating(false)} className="px-16 text-slate-700 font-black text-[12px] uppercase tracking-widest hover:text-white transition-colors">Abort</button>
           </div>
         </div>
@@ -500,7 +455,7 @@ const AdminPanel: React.FC<{ sessions: Session[]; onRefresh: () => void, theme: 
               <h4 className="text-3xl font-black text-white tracking-tighter uppercase">{s.title}</h4>
               <div className="flex items-center gap-10">
                 <span className="text-[11px] font-black uppercase tracking-[0.2em]" style={{ color: accent }}>{s.participationCount} Samples</span>
-                <span className="text-[11px] text-emerald-500 font-black uppercase tracking-[0.2em] border border-emerald-500/20 px-5 py-2 rounded-full">Publicly Discoverable</span>
+                <span className="text-[11px] text-emerald-500 font-black uppercase tracking-[0.2em] border border-emerald-500/20 px-5 py-2 rounded-full">Global Visibility Active</span>
               </div>
             </div>
             <button onClick={() => handleDelete(s.id)} className="p-8 text-slate-800 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-all">
@@ -517,7 +472,7 @@ const App: React.FC = () => {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [user, setUser] = useState<User | null>(null);
   const [showLogin, setShowLogin] = useState(false);
-  const [theme, setTheme] = useState<AppTheme>({ accent: 'sky', bgStyle: 'deep' });
+  const [theme] = useState<AppTheme>({ accent: 'sky', bgStyle: 'deep' });
   const [registryLoading, setRegistryLoading] = useState(true);
 
   const refreshRegistry = async () => {
@@ -536,7 +491,7 @@ const App: React.FC = () => {
   
   return (
     <div className="min-h-screen transition-all duration-1000 selection:bg-white selection:text-black font-sans overflow-x-hidden">
-      <Navbar user={user} theme={theme} setTheme={setTheme} onLogin={() => setShowLogin(true)} onLogout={() => setUser(null)} />
+      <Navbar user={user} theme={theme} onLogin={() => setShowLogin(true)} onLogout={() => setUser(null)} />
       
       {registryLoading && (
         <div className="fixed inset-0 z-[200] bg-black/40 flex items-center justify-center backdrop-blur-md">
@@ -560,9 +515,9 @@ const App: React.FC = () => {
             }} className="space-y-8">
               <input name="email" placeholder="Identifier" className="w-full bg-white/5 border border-white/10 rounded-[3rem] px-10 py-8 text-white outline-none focus:border-white/30 font-bold text-center tracking-widest" />
               <input name="pass" type="password" placeholder="Key Sequence" className="w-full bg-white/5 border border-white/10 rounded-[3rem] px-10 py-8 text-white outline-none focus:border-white/30 font-bold text-center tracking-widest" />
-              <button type="submit" className="w-full bg-white text-black font-black py-8 rounded-[3rem] uppercase tracking-[0.6em] text-[14px] mt-12 hover:scale-[1.03] active:scale-95 transition-all shadow-2xl">Authorize Cluster</button>
+              <button type="submit" className="w-full bg-white text-black font-black py-8 rounded-[3rem] uppercase tracking-[0.6em] text-[14px] mt-12 hover:scale-[1.03] active:scale-95 transition-all shadow-2xl">Authorize Node</button>
             </form>
-            <button onClick={() => setShowLogin(false)} className="mt-16 text-slate-800 text-[12px] uppercase font-black tracking-widest hover:text-slate-500 transition-colors">Abort Access</button>
+            <button onClick={() => setShowLogin(false)} className="mt-16 text-slate-800 text-[12px] uppercase font-black tracking-widest hover:text-slate-500 transition-colors">Abort</button>
           </div>
         </div>
       )}
@@ -590,7 +545,7 @@ const App: React.FC = () => {
                  <a href="#" className="text-[14px] font-black text-slate-800 uppercase tracking-[0.5em] hover:text-slate-500 transition-all">Registry Integrity</a>
               </div>
             </div>
-            <p className="text-slate-800 text-[13px] font-mono-plex font-black uppercase tracking-[0.8em] opacity-30">© 2024 SAVVY SOCIETY :: CORE NODE 12.0 :: PATTERNS NEUTRALIZED</p>
+            <p className="text-slate-800 text-[13px] font-mono-plex font-black uppercase tracking-[0.8em] opacity-30">© 2024 SAVVY SOCIETY :: CORE NODE 13.0 :: PATTERNS NEUTRALIZED</p>
           </div>
         </div>
       </footer>
