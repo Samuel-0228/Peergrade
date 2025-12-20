@@ -1,5 +1,5 @@
 {
-  "name": "Savvy Academic Insights",
-  "description": "A public academic insight platform visualizing aggregated, anonymous survey response data with cross-question analysis and descriptive summaries.",
+  "name": "Savvy Academic Insight Dashboard",
+  "description": "A research-oriented platform for visualizing aggregated survey data from students, providing collective academic insights through data-driven charts and descriptive AI summaries.",
   "requestFramePermissions": []
 }

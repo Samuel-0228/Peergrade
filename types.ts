@@ -1,57 +1,31 @@
 
-export enum SessionStatus {
-  LIVE = 'Live',
-  PAUSED = 'Paused',
-  ARCHIVED = 'Archived'
-}
-
-export type AccentColor = 'sky' | 'emerald' | 'rose' | 'amber' | 'violet';
-export type BackgroundStyle = 'deep' | 'gradient' | 'minimal';
-
-export interface AppTheme {
-  accent: AccentColor;
-  bgStyle: BackgroundStyle;
-}
-
-export interface SurveyColumn {
-  id: string;
+export interface DataPoint {
   label: string;
-  type: 'categorical' | 'numerical';
-  isVisualizable: boolean;
+  count: number;
+  percentage: number;
+  // Added index signature to allow charting libraries like Recharts to access properties dynamically
+  [key: string]: string | number;
 }
 
-export interface RawResponse {
-  [key: string]: string | number;
+export interface QuestionAnalysis {
+  id: string;
+  questionText: string;
+  chartType: 'pie' | 'bar';
+  data: DataPoint[];
+  summary: string;
 }
 
 export interface Session {
   id: string;
   title: string;
-  description: string;
-  sheetUrl?: string;
-  sourceName?: string;
-  participationCount: number;
-  lastUpdated: string;
-  status: SessionStatus;
+  createdAt: number;
+  responseCount: number;
+  analyses: QuestionAnalysis[];
   isPublic: boolean;
-  aiInsights?: string;
-  columnDescriptions?: Record<string, string>;
-  columns: SurveyColumn[];
-  responses: RawResponse[];
-  showCharts: boolean;
-  showAiInsights: boolean;
-  enableCsvDownload: boolean;
-  correlationData?: string;
+  csvContent?: string;
 }
 
-export enum UserRole {
-  PUBLIC = 'Public',
-  ADMIN = 'Admin',
-  OWNER = 'Owner'
-}
-
-export interface User {
-  id: string;
-  email: string;
-  role: UserRole;
+export interface AuthState {
+  user: string | null;
+  isAdmin: boolean;
 }
