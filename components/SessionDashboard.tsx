@@ -1,8 +1,8 @@
-
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Users, Calendar, Info, FileSpreadsheet, Loader2 } from 'lucide-react';
 import { storageService } from '../services/storageService';
+import { supabase } from '../services/supabaseClient';
 import { Session } from '../types';
 import ChartComponent from './ChartComponent';
 
@@ -10,6 +10,7 @@ const SessionDashboard: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   useEffect(() => {
     const fetchSession = async () => {
@@ -21,6 +22,44 @@ const SessionDashboard: React.FC = () => {
     };
     fetchSession();
   }, [id]);
+
+  const handleDownload = async () => {
+    if (!session || !id) return;
+    
+    // Check if we have a record in the database for the csv_url
+    const { data, error } = await supabase
+      .from('sessions')
+      .select('csv_url')
+      .eq('id', id)
+      .single();
+
+    if (error || !data?.csv_url) {
+      alert("No downloadable dataset found for this session.");
+      return;
+    }
+
+    setIsDownloading(true);
+    try {
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from('csv-archives')
+        .download(data.csv_url);
+
+      if (downloadError) throw downloadError;
+
+      const url = window.URL.createObjectURL(fileData);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${session.title.replace(/\s+/g, '_')}_data.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+    } catch (err) {
+      console.error("Download error:", err);
+      alert("Failed to retrieve the dataset from storage. Ensure the 'csv-archives' bucket exists.");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -133,9 +172,17 @@ const SessionDashboard: React.FC = () => {
 
       <footer className="mt-20 pt-8 border-t border-slate-800 text-center">
         <p className="text-slate-500 text-sm mb-4">All researchers may access the raw collective data for further institutional study.</p>
-        <button className="inline-flex items-center gap-2 px-6 py-2.5 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors text-xs font-bold uppercase tracking-widest text-white">
-          <FileSpreadsheet className="w-4 h-4" />
-          Download Dataset (.CSV)
+        <button 
+          onClick={handleDownload}
+          disabled={isDownloading}
+          className="inline-flex items-center gap-2 px-6 py-2.5 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors text-xs font-bold uppercase tracking-widest text-white disabled:opacity-50"
+        >
+          {isDownloading ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <FileSpreadsheet className="w-4 h-4" />
+          )}
+          {isDownloading ? "Preparing Dataset..." : "Download Dataset (.CSV)"}
         </button>
       </footer>
     </div>
