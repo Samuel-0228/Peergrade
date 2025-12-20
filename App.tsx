@@ -1,83 +1,104 @@
 
 import React, { useState, useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import DashboardHeader from './components/DashboardHeader';
-import PublicHome from './pages/PublicHome';
-import SessionDetail from './pages/SessionDetail';
-import AdminDashboard from './pages/AdminDashboard';
+import { ShieldCheck, Info, Database } from 'lucide-react';
+import Navbar from './components/Navbar';
+import SessionList from './components/SessionList';
 import AdminLogin from './components/AdminLogin';
-import { AuthState } from './types';
+import AdminPanel from './components/AdminPanel';
+import SessionDashboard from './components/SessionDashboard';
+import { storageService } from './services/storageService';
+import { AuthState, Session } from './types';
+
+const Home: React.FC = () => {
+  const [sessions, setSessions] = useState<Session[]>([]);
+
+  useEffect(() => {
+    setSessions(storageService.getPublicSessions());
+  }, []);
+
+  return (
+    <div className="max-w-7xl mx-auto py-16 px-4 sm:px-6 lg:px-8">
+      <header className="text-center mb-20">
+        <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-500/10 border border-indigo-500/20 rounded-full text-indigo-400 text-[10px] font-bold uppercase tracking-[0.2em] mb-6 animate-pulse">
+          Institutional Insight Dashboard
+        </div>
+        <h1 className="text-5xl md:text-7xl font-academic font-bold text-white mb-6 tracking-tighter">
+          SAVVY <span className="text-indigo-600">RESEARCH</span>
+        </h1>
+        <p className="text-xl text-slate-400 max-w-2xl mx-auto leading-relaxed">
+          Aggregated survey insights for academic communities. 
+          Discover patterns, distributions, and collective trends in freshman academic preferences.
+        </p>
+      </header>
+
+      <section className="mb-20">
+        <div className="flex items-center justify-between mb-8 border-b border-slate-800 pb-4">
+          <div className="flex items-center gap-3">
+            <Database className="w-5 h-5 text-indigo-500" />
+            <h2 className="text-xl font-academic font-bold text-white tracking-tight">Active Published Insights</h2>
+          </div>
+          <p className="text-xs font-mono-academic text-slate-500 uppercase tracking-widest font-bold">
+            {sessions.length} Available Collections
+          </p>
+        </div>
+        <SessionList sessions={sessions} />
+      </section>
+
+      <div className="max-w-4xl mx-auto p-8 bg-slate-900 border border-slate-800 rounded-2xl">
+        <div className="flex gap-4 items-start">
+          <div className="p-3 bg-indigo-500/10 rounded-xl">
+            <Info className="w-6 h-6 text-indigo-500" />
+          </div>
+          <div>
+            <h3 className="text-lg font-academic font-bold text-white mb-2">Academic Transparency Disclaimer</h3>
+            <p className="text-sm text-slate-400 leading-relaxed mb-4">
+              Savvy is a public academic insight platform designed for descriptive data visualization. 
+              The system presents collective student patterns based on anonymized Google Forms response data. 
+              The information provided is for institutional awareness and collective insight only.
+            </p>
+            <p className="text-xs text-indigo-400 font-bold uppercase tracking-widest flex items-center gap-2">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              Verified Institutional Data
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const App: React.FC = () => {
   const [auth, setAuth] = useState<AuthState>(() => {
     const saved = localStorage.getItem('savvy_auth');
-    return saved ? JSON.parse(saved) : { user: null, isAdmin: false };
+    return saved ? JSON.parse(saved) : { isAdmin: false, email: null };
   });
 
-  const [showLogin, setShowLogin] = useState(false);
-
-  useEffect(() => {
-    localStorage.setItem('savvy_auth', JSON.stringify(auth));
-  }, [auth]);
-
-  const handleLogin = (success: boolean) => {
-    if (success) {
-      setAuth({ user: 'savvysocietyteam@gmail.com', isAdmin: true });
-      setShowLogin(false);
-    }
+  const handleLogin = (email: string) => {
+    const newState = { isAdmin: true, email };
+    setAuth(newState);
+    localStorage.setItem('savvy_auth', JSON.stringify(newState));
   };
 
   const handleLogout = () => {
-    setAuth({ user: null, isAdmin: false });
-    window.location.hash = '#/';
+    const newState = { isAdmin: false, email: null };
+    setAuth(newState);
+    localStorage.removeItem('savvy_auth');
   };
 
   return (
     <Router>
-      <div className="min-h-screen bg-slate-50">
-        <DashboardHeader 
-          isAdmin={auth.isAdmin} 
-          onLogout={handleLogout} 
-          onLogin={() => setShowLogin(true)} 
-        />
-        
-        <main>
+      <div className="min-h-screen bg-[#0a0a0c] selection:bg-indigo-500 selection:text-white">
+        <Navbar isAdmin={auth.isAdmin} onLogout={handleLogout} />
+        <main className="pb-20">
           <Routes>
-            <Route path="/" element={<PublicHome />} />
-            <Route path="/session/:id" element={<SessionDetail />} />
-            <Route 
-              path="/admin" 
-              element={auth.isAdmin ? <AdminDashboard /> : <Navigate to="/" />} 
-            />
+            <Route path="/" element={<Home />} />
+            <Route path="/login" element={auth.isAdmin ? <Navigate to="/admin" /> : <AdminLogin onLogin={handleLogin} />} />
+            <Route path="/admin" element={auth.isAdmin ? <AdminPanel /> : <Navigate to="/login" />} />
+            <Route path="/session/:id" element={<SessionDashboard />} />
+            <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </main>
-
-        {showLogin && (
-          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-            <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-8 relative">
-              <button 
-                onClick={() => setShowLogin(false)}
-                className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-              <AdminLogin onLogin={handleLogin} />
-            </div>
-          </div>
-        )}
-
-        <footer className="bg-white border-t border-slate-200 mt-20 py-12">
-          <div className="max-w-7xl mx-auto px-4 text-center">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-              Savvy Peer-Grade Academic Insight Dashboard &copy; {new Date().getFullYear()}
-            </p>
-            <p className="text-[10px] text-slate-400 mt-2 max-w-lg mx-auto leading-relaxed">
-              Designed for institutional research and collective data visualization. Savvy provides descriptive analysis of aggregated student survey data. No personal advice or predictive results are generated by this system.
-            </p>
-          </div>
-        </footer>
       </div>
     </Router>
   );

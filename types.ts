@@ -1,31 +1,27 @@
 
-export interface DataPoint {
-  label: string;
-  count: number;
-  percentage: number;
-  // Added index signature to allow charting libraries like Recharts to access properties dynamically
-  [key: string]: string | number;
+export enum ChartType {
+  PIE = 'PIE',
+  BAR = 'BAR'
 }
 
 export interface QuestionAnalysis {
-  id: string;
-  questionText: string;
-  chartType: 'pie' | 'bar';
-  data: DataPoint[];
+  question: string;
+  chartType: ChartType;
+  data: Array<{ name: string; value: number; percentage: string }>;
   summary: string;
 }
 
 export interface Session {
   id: string;
   title: string;
-  createdAt: number;
+  description: string;
+  createdAt: string;
   responseCount: number;
-  analyses: QuestionAnalysis[];
   isPublic: boolean;
-  csvContent?: string;
+  analyses: QuestionAnalysis[];
 }
 
 export interface AuthState {
-  user: string | null;
   isAdmin: boolean;
+  email: string | null;
 }

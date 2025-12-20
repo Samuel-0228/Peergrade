@@ -1,27 +1,28 @@
 
-import { GoogleGenAI } from "@google/genai";
-import { DataPoint } from "../types";
+import { GoogleGenAI, Type } from "@google/genai";
 
-// Always use the process.env.API_KEY directly for initialization as per guidelines
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
 
-export const generateAcademicSummary = async (questionText: string, data: DataPoint[]): Promise<string> => {
-  const dataString = data.map(d => `${d.label}: ${d.count} (${d.percentage}%)`).join(", ");
+export const generateAcademicSummary = async (question: string, data: Array<{ name: string; value: number; percentage: string }>) => {
+  const ai = getAI();
+  const dataString = data.map(d => `${d.name}: ${d.value} responses (${d.percentage}%)`).join(', ');
   
   const prompt = `
-    Analyze this survey question and its resulting data distribution for an academic insight dashboard.
+    Analyze the following categorical distribution from a university student survey question:
+    Question: "${question}"
+    Data: ${dataString}
+
+    Provide a concise, neutral, and descriptive summary of the patterns visible in the data.
     
-    Question: "${questionText}"
-    Distribution: [${dataString}]
+    Rules (Non-negotiable):
+    - 2-3 sentences max.
+    - Use neutral, descriptive academic language.
+    - Reference concentrations and trends.
+    - DO NOT give advice, recommendations, or value judgments.
+    - DO NOT use second-person language (no "you").
+    - DO NOT predict outcomes.
     
-    TASK:
-    Write a neutral, descriptive, and academic summary of what the data shows.
-    - Describe distributions and concentrations.
-    - Reference the sample group as a whole.
-    - Be concise (2-3 sentences max).
-    - Use phrases like "appears to indicate", "shows a concentration", "is associated with", or "tends to cluster".
-    - STRICTLY FORBIDDEN: advice, recommendations, predictions, second-person language ("you"), or value judgments ("good", "bad", "low", "high").
-    - Use institutional, research-oriented tone.
+    Allowed phrasing: "appears to indicate", "shows a concentration", "is associated with", "tends to cluster".
   `;
 
   try {
@@ -29,16 +30,13 @@ export const generateAcademicSummary = async (questionText: string, data: DataPo
       model: 'gemini-3-flash-preview',
       contents: prompt,
       config: {
-        temperature: 0.3,
-        topP: 0.8,
-        topK: 40,
+        temperature: 0.1, // Low temperature for consistent academic tone
       }
     });
 
-    // The text property is a getter and should not be called as a function
-    return response.text || "Summary unavailable.";
+    return response.text || "No summary available.";
   } catch (error) {
-    console.error("Gemini analysis error:", error);
-    return "Data analysis complete. Distribution patterns observed across the sampled population.";
+    console.error("Gemini Summary Error:", error);
+    return "Summary analysis could not be generated at this time.";
   }
 };
