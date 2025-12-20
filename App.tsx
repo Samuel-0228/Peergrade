@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { ShieldCheck, Info, Database } from 'lucide-react';
+import { ShieldCheck, Info, Database, Loader2 } from 'lucide-react';
 import Navbar from './components/Navbar';
 import SessionList from './components/SessionList';
 import AdminLogin from './components/AdminLogin';
@@ -12,9 +12,16 @@ import { AuthState, Session } from './types';
 
 const Home: React.FC = () => {
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    setSessions(storageService.getPublicSessions());
+    const fetchSessions = async () => {
+      setIsLoading(true);
+      const data = await storageService.getPublicSessions();
+      setSessions(data);
+      setIsLoading(false);
+    };
+    fetchSessions();
   }, []);
 
   return (
@@ -39,10 +46,18 @@ const Home: React.FC = () => {
             <h2 className="text-xl font-academic font-bold text-white tracking-tight">Active Published Insights</h2>
           </div>
           <p className="text-xs font-mono-academic text-slate-500 uppercase tracking-widest font-bold">
-            {sessions.length} Available Collections
+            {isLoading ? 'Syncing...' : `${sessions.length} Available Collections`}
           </p>
         </div>
-        <SessionList sessions={sessions} />
+        
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-20 bg-slate-900/30 rounded-2xl border border-slate-800">
+            <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mb-4" />
+            <p className="text-slate-500 text-sm">Synchronizing archives...</p>
+          </div>
+        ) : (
+          <SessionList sessions={sessions} />
+        )}
       </section>
 
       <div className="max-w-4xl mx-auto p-8 bg-slate-900 border border-slate-800 rounded-2xl">

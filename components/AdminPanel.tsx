@@ -9,12 +9,20 @@ import SessionList from './SessionList';
 const AdminPanel: React.FC = () => {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [newTitle, setNewTitle] = useState('');
   const [newDescription, setNewDescription] = useState('');
   const [error, setError] = useState<string | null>(null);
 
+  const loadSessions = async () => {
+    setIsLoading(true);
+    const data = await storageService.getSessions();
+    setSessions(data);
+    setIsLoading(false);
+  };
+
   useEffect(() => {
-    setSessions(storageService.getSessions());
+    loadSessions();
   }, []);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -45,10 +53,14 @@ const AdminPanel: React.FC = () => {
           analyses
         };
 
-        storageService.saveSession(newSession);
-        setSessions(storageService.getSessions());
-        setNewTitle('');
-        setNewDescription('');
+        const success = await storageService.saveSession(newSession, file);
+        if (success) {
+          await loadSessions();
+          setNewTitle('');
+          setNewDescription('');
+        } else {
+          setError("Failed to save research session to cloud storage.");
+        }
         setIsUploading(false);
       };
       reader.readAsText(file);
@@ -58,16 +70,19 @@ const AdminPanel: React.FC = () => {
     }
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm("Are you sure you want to delete this session? This action cannot be undone.")) {
-      storageService.deleteSession(id);
-      setSessions(storageService.getSessions());
+  const handleDelete = async (id: string) => {
+    if (confirm("Are you sure you want to delete this session? This action cannot be undone and will be removed from universal storage.")) {
+      await storageService.deleteSession(id);
+      await loadSessions();
     }
   };
 
-  const handleTogglePublic = (id: string) => {
-    storageService.togglePublicStatus(id);
-    setSessions(storageService.getSessions());
+  const handleTogglePublic = async (id: string) => {
+    const session = sessions.find(s => s.id === id);
+    if (session) {
+      await storageService.togglePublicStatus(id, session.isPublic);
+      await loadSessions();
+    }
   };
 
   return (
@@ -78,7 +93,6 @@ const AdminPanel: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Creation Sidebar */}
         <div className="lg:col-span-1">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sticky top-24">
             <h2 className="text-lg font-academic font-bold text-white mb-6 flex items-center gap-2">
@@ -142,7 +156,6 @@ const AdminPanel: React.FC = () => {
           </div>
         </div>
 
-        {/* Sessions List */}
         <div className="lg:col-span-2">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-academic font-bold text-white flex items-center gap-2">
@@ -150,16 +163,23 @@ const AdminPanel: React.FC = () => {
               Existing Analysis Archives
             </h2>
             <span className="text-xs font-mono-academic text-slate-500 uppercase tracking-widest font-bold">
-              {sessions.length} Records
+              {isLoading ? 'Syncing...' : `${sessions.length} Records`}
             </span>
           </div>
           
-          <SessionList 
-            sessions={sessions} 
-            isAdminView={true} 
-            onDelete={handleDelete}
-            onTogglePublic={handleTogglePublic}
-          />
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center py-20 bg-slate-900/30 rounded-2xl border border-slate-800">
+              <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mb-4" />
+              <p className="text-slate-500 text-sm">Syncing with universal database...</p>
+            </div>
+          ) : (
+            <SessionList 
+              sessions={sessions} 
+              isAdminView={true} 
+              onDelete={handleDelete}
+              onTogglePublic={handleTogglePublic}
+            />
+          )}
         </div>
       </div>
     </div>

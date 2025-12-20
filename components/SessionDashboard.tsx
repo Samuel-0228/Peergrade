@@ -1,19 +1,41 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Users, Calendar, Info, FileSpreadsheet } from 'lucide-react';
+import { ArrowLeft, Users, Calendar, Info, FileSpreadsheet, Loader2 } from 'lucide-react';
 import { storageService } from '../services/storageService';
+import { Session } from '../types';
 import ChartComponent from './ChartComponent';
 
 const SessionDashboard: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const session = storageService.getSessionById(id || '');
+  const [session, setSession] = useState<Session | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchSession = async () => {
+      if (!id) return;
+      setIsLoading(true);
+      const data = await storageService.getSessionById(id);
+      setSession(data);
+      setIsLoading(false);
+    };
+    fetchSession();
+  }, [id]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center px-4">
+        <Loader2 className="w-10 h-10 text-indigo-500 animate-spin mb-4" />
+        <p className="text-slate-400 font-academic uppercase tracking-widest text-sm font-bold">Retrieving Academic Data...</p>
+      </div>
+    );
+  }
 
   if (!session) {
     return (
       <div className="max-w-4xl mx-auto py-20 px-4 text-center">
         <h1 className="text-2xl font-bold text-white mb-4">Session Not Found</h1>
-        <p className="text-slate-400 mb-8">The requested academic insight session does not exist or has been retracted.</p>
+        <p className="text-slate-400 mb-8">The requested academic insight session does not exist or has been retracted from universal storage.</p>
         <Link to="/" className="text-indigo-400 hover:text-indigo-300 font-bold uppercase tracking-widest text-xs">Back to Archives</Link>
       </div>
     );
