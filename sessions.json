@@ -1,29 +1,4 @@
 
 [
-  {
-    "id": "sav-core-1",
-    "title": "2024 Academic Trajectory Node",
-    "description": "Integrated structural analysis of current cohort performance metrics and departmental distribution patterns. This is a read-only public registry node.",
-    "participationCount": 2450,
-    "lastUpdated": "2024-05-20T10:00:00Z",
-    "status": "Live",
-    "isPublic": true,
-    "columns": [
-      { "id": "q1", "label": "Department", "type": "categorical", "isVisualizable": true },
-      { "id": "q2", "label": "Performance Tier", "type": "categorical", "isVisualizable": true },
-      { "id": "q3", "label": "Resource Access", "type": "categorical", "isVisualizable": true }
-    ],
-    "responses": [
-      { "q1": "STEM", "q2": "High", "q3": "Full" },
-      { "q1": "Humanities", "q2": "Mid", "q3": "Partial" },
-      { "q1": "STEM", "q2": "High", "q3": "Full" },
-      { "q1": "Business", "q2": "Low", "q3": "Full" },
-      { "q1": "STEM", "q2": "Mid", "q3": "Partial" }
-    ],
-    "columnDescriptions": {
-      "q1": "STEM fields show the highest concentration of active participation within this cohort cycle.",
-      "q2": "Performance tiers are strictly normalized against the baseline established in the previous operational quarter.",
-      "q3": "Access metrics indicate a strong correlation between resource availability and STEM-focused concentrations."
-    }
-  }
+  
 ]
