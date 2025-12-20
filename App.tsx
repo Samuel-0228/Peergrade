@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { ShieldCheck, Info, Database, Loader2 } from 'lucide-react';
+import { ShieldCheck, Info, Database, Loader2, Send, Heart } from 'lucide-react';
 import Navbar from './components/Navbar';
 import SessionList from './components/SessionList';
 import AdminLogin from './components/AdminLogin';
@@ -84,6 +84,50 @@ const Home: React.FC = () => {
   );
 };
 
+const Footer: React.FC = () => {
+  return (
+    <footer className="border-t border-slate-800 mt-20 bg-slate-950/50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-8">
+          <div className="text-center md:text-left">
+            <div className="flex items-center gap-2 mb-2 justify-center md:justify-start">
+              <Database className="w-4 h-4 text-indigo-500" />
+              <span className="font-academic font-bold text-lg tracking-tight text-white">SAVVY</span>
+            </div>
+            <p className="text-slate-500 text-xs font-mono-academic uppercase tracking-widest">
+              © {new Date().getFullYear()} Savvy Research. All rights reserved.
+            </p>
+          </div>
+
+          <div className="flex flex-col items-center gap-4">
+            <a 
+              href="https://t.me/savvysociety" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-3 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full transition-all group shadow-lg shadow-indigo-600/20"
+            >
+              <Send className="w-4 h-4 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+              <span className="text-xs font-bold uppercase tracking-widest">Join our Telegram Channel</span>
+            </a>
+            <p className="text-[10px] text-slate-600 font-mono-academic uppercase tracking-tighter">
+              Get real-time updates on institutional research
+            </p>
+          </div>
+
+          <div className="text-center md:text-right">
+            <p className="text-slate-400 text-xs font-medium flex items-center justify-center md:justify-end gap-1.5 mb-1">
+              Built with <Heart className="w-3 h-3 text-rose-500 fill-rose-500" /> by
+            </p>
+            <p className="text-indigo-400 text-sm font-academic font-bold tracking-tight">
+              Savvy Society Team
+            </p>
+          </div>
+        </div>
+      </div>
+    </footer>
+  );
+};
+
 const App: React.FC = () => {
   const [auth, setAuth] = useState<AuthState>(() => {
     const saved = localStorage.getItem('savvy_auth');
@@ -104,9 +148,9 @@ const App: React.FC = () => {
 
   return (
     <Router>
-      <div className="min-h-screen bg-[#0a0a0c] selection:bg-indigo-500 selection:text-white">
+      <div className="min-h-screen bg-[#0a0a0c] selection:bg-indigo-500 selection:text-white flex flex-col">
         <Navbar isAdmin={auth.isAdmin} onLogout={handleLogout} />
-        <main className="pb-20">
+        <main className="flex-grow pb-20">
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/login" element={auth.isAdmin ? <Navigate to="/admin" /> : <AdminLogin onLogin={handleLogin} />} />
@@ -115,6 +159,7 @@ const App: React.FC = () => {
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </main>
+        <Footer />
         <SupportChatbot />
       </div>
     </Router>
