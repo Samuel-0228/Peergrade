@@ -74,25 +74,23 @@ const ChartComponent: React.FC<ChartComponentProps> = ({ analysis }) => {
         </ResponsiveContainer>
       </div>
       
-      {/* Custom Legend for Pie Charts */}
-      {isPie && (
-        <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-slate-800/50 pt-4">
-          {analysis.data.map((entry, index) => (
-            <div key={`legend-${index}`} className="flex items-center gap-2 group">
-              <div 
-                className="w-2.5 h-2.5 rounded-sm shrink-0 shadow-sm" 
-                style={{ backgroundColor: COLORS[index % COLORS.length] }}
-              />
-              <span className="text-[10px] font-mono-academic text-slate-400 truncate group-hover:text-slate-200 transition-colors">
-                {entry.name}
-              </span>
-              <span className="text-[10px] font-mono-academic font-bold text-indigo-500 ml-auto">
-                {entry.percentage}%
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
+      {/* Dynamic Labels Legend */}
+      <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 border-t border-slate-800/50 pt-5">
+        {analysis.data.map((entry, index) => (
+          <div key={`legend-${index}`} className="flex items-center gap-2 group">
+            <div 
+              className="w-2.5 h-2.5 rounded-sm shrink-0 shadow-sm" 
+              style={{ backgroundColor: COLORS[index % COLORS.length] }}
+            />
+            <span className="text-[10px] font-mono-academic text-slate-400 truncate group-hover:text-slate-200 transition-colors">
+              {entry.name}
+            </span>
+            <span className="text-[10px] font-mono-academic font-bold text-indigo-500 ml-auto tabular-nums">
+              {entry.percentage}%
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };
