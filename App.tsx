@@ -35,7 +35,7 @@ const Home: React.FC = () => {
           SAVVY <span className="text-indigo-600">RESEARCH</span>
         </h1>
         <p className="text-xl text-slate-400 max-w-2xl mx-auto leading-relaxed">
-          Aggregated survey insights for academic communities. 
+          Aggregated survey insights for academic communities.
           Discover patterns, distributions, and collective trends in freshman academic preferences.
         </p>
       </header>
@@ -50,7 +50,7 @@ const Home: React.FC = () => {
             {isLoading ? 'Syncing...' : `${sessions.length} Available Collections`}
           </p>
         </div>
-        
+
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20 bg-slate-900/30 rounded-2xl border border-slate-800">
             <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mb-4" />
@@ -69,8 +69,8 @@ const Home: React.FC = () => {
           <div>
             <h3 className="text-lg font-academic font-bold text-white mb-2">Academic Transparency Disclaimer</h3>
             <p className="text-sm text-slate-400 leading-relaxed mb-4">
-              Savvy is a public academic insight platform designed for descriptive data visualization. 
-              The system presents collective student patterns based on anonymized Google Forms response data. 
+              Savvy is a public academic insight platform designed for descriptive data visualization.
+              The system presents collective student patterns based on anonymized Google Forms response data.
               The information provided is for institutional awareness and collective insight only.
             </p>
             <p className="text-xs text-indigo-400 font-bold uppercase tracking-widest flex items-center gap-2">
@@ -100,9 +100,9 @@ const Footer: React.FC = () => {
           </div>
 
           <div className="flex flex-col items-center gap-4">
-            <a 
-              href="https://t.me/savvysociety" 
-              target="_blank" 
+            <a
+              href="https://t.me/savvy_society"
+              target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-3 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full transition-all group shadow-lg shadow-indigo-600/20"
             >
