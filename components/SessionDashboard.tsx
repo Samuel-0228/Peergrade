@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Users, Calendar, Info, FileSpreadsheet, Loader2, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Users, Calendar, Info, FileSpreadsheet, Loader2, AlertTriangle, Sparkles } from 'lucide-react';
 import { storageService } from '../services/storageService';
 import { supabase } from '../services/supabaseClient';
 import { Session } from '../types';
@@ -87,6 +87,12 @@ const SessionDashboard: React.FC = () => {
     );
   }
 
+  const isSummaryMissing = (summary?: string) => {
+    return !summary || 
+           summary === "No summary available." || 
+           summary === "Summary analysis could not be generated at this time.";
+  };
+
   return (
     <div className="max-w-6xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
       <Link to="/" className="inline-flex items-center gap-2 text-slate-500 hover:text-white transition-colors text-xs font-bold uppercase tracking-widest mb-8">
@@ -134,47 +140,67 @@ const SessionDashboard: React.FC = () => {
       </header>
 
       <div className="space-y-12">
-        {session.analyses.map((analysis, index) => (
-          <section key={index} className="bg-slate-900/50 border border-slate-800 rounded-2xl p-8 hover:border-slate-700 transition-colors">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-              <div>
-                <div className="flex items-center gap-3 mb-6">
-                  <span className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-xs font-bold text-white">
-                    {index + 1}
-                  </span>
-                  <h3 className="text-xl font-academic font-bold text-white leading-tight">
-                    {analysis.question}
-                  </h3>
-                </div>
-                
-                <div className="space-y-4">
-                  <div className="p-5 bg-slate-950/50 border border-slate-800 rounded-xl">
-                    <p className="text-slate-300 leading-relaxed text-sm font-academic">
-                      {analysis.summary}
-                    </p>
+        {session.analyses.map((analysis, index) => {
+          const summaryUnavailable = isSummaryMissing(analysis.summary);
+          
+          return (
+            <section key={index} className="bg-slate-900/50 border border-slate-800 rounded-2xl p-8 hover:border-slate-700 transition-colors">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+                <div>
+                  <div className="flex items-center gap-3 mb-6">
+                    <span className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-xs font-bold text-white">
+                      {index + 1}
+                    </span>
+                    <h3 className="text-xl font-academic font-bold text-white leading-tight">
+                      {analysis.question}
+                    </h3>
                   </div>
                   
-                  <div className="flex flex-wrap gap-2">
-                    {analysis.data.slice(0, 3).map((item, idx) => (
-                      <span key={idx} className="px-3 py-1 bg-indigo-500/10 border border-indigo-500/20 rounded-full text-[10px] font-mono-academic font-bold text-indigo-400 uppercase">
-                        {item.name}: {item.percentage}%
-                      </span>
-                    ))}
-                    {analysis.data.length > 3 && (
-                      <span className="px-3 py-1 bg-slate-800 rounded-full text-[10px] font-mono-academic font-bold text-slate-400 uppercase">
-                        +{analysis.data.length - 3} others
-                      </span>
-                    )}
+                  <div className="space-y-4">
+                    <div className={`p-5 rounded-xl border transition-all ${
+                      summaryUnavailable 
+                        ? 'bg-slate-950/30 border-slate-800/50 opacity-80' 
+                        : 'bg-slate-950/50 border-slate-800'
+                    }`}>
+                      {summaryUnavailable ? (
+                        <div className="flex items-center gap-3 text-slate-500">
+                          <AlertTriangle className="w-4 h-4 text-amber-500/50" />
+                          <p className="text-xs font-mono-academic italic tracking-tight">
+                            Research summary was not available for this data segment.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="flex gap-4">
+                           <Sparkles className="w-4 h-4 text-indigo-500 shrink-0 mt-1 opacity-50" />
+                           <p className="text-slate-300 leading-relaxed text-sm font-academic">
+                             {analysis.summary}
+                           </p>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-2">
+                      {analysis.data.slice(0, 3).map((item, idx) => (
+                        <span key={idx} className="px-3 py-1 bg-indigo-500/10 border border-indigo-500/20 rounded-full text-[10px] font-mono-academic font-bold text-indigo-400 uppercase">
+                          {item.name}: {item.percentage}%
+                        </span>
+                      ))}
+                      {analysis.data.length > 3 && (
+                        <span className="px-3 py-1 bg-slate-800 rounded-full text-[10px] font-mono-academic font-bold text-slate-400 uppercase">
+                          +{analysis.data.length - 3} others
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="bg-slate-950/50 border border-slate-800 rounded-xl p-4">
-                <ChartComponent analysis={analysis} />
+                <div className="bg-slate-950/50 border border-slate-800 rounded-xl p-6">
+                  <ChartComponent analysis={analysis} />
+                </div>
               </div>
-            </div>
-          </section>
-        ))}
+            </section>
+          );
+        })}
       </div>
 
       <footer className="mt-20 pt-8 border-t border-slate-800 text-center">

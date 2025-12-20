@@ -7,6 +7,7 @@ import SessionList from './components/SessionList';
 import AdminLogin from './components/AdminLogin';
 import AdminPanel from './components/AdminPanel';
 import SessionDashboard from './components/SessionDashboard';
+import SupportChatbot from './components/SupportChatbot';
 import { storageService } from './services/storageService';
 import { AuthState, Session } from './types';
 
@@ -114,6 +115,7 @@ const App: React.FC = () => {
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </main>
+        <SupportChatbot />
       </div>
     </Router>
   );
