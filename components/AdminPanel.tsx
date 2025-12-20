@@ -194,7 +194,7 @@ const AdminPanel: React.FC = () => {
                         1. Go to your Supabase Dashboard.<br/>
                         2. Navigate to <strong>Storage</strong> (for bucket) or <strong>Database</strong> (for tables).<br/>
                         3. Find 'csv-archives' or 'sessions' table.<br/>
-                        4. Click <strong>Policies</strong> -> <strong>New Policy</strong>.<br/>
+                        4. Click <strong>Policies</strong> &#8594; <strong>New Policy</strong>.<br/>
                         5. Enable <strong>INSERT</strong> and <strong>SELECT</strong> for the <strong>anon</strong> role.
                       </p>
                     </div>
