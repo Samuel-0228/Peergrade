@@ -1,6 +1,9 @@
 
 import { GoogleGenAI } from "@google/genai";
 
+// Minimal local declaration to satisfy TypeScript when Node types are not installed
+declare const process: { env: { API_KEY?: string } };
+
 const getAI = () => {
   if (!process.env.API_KEY) {
     throw new Error("CONFIG_ERROR");
@@ -10,7 +13,7 @@ const getAI = () => {
 
 export const generateAcademicSummary = async (question: string, data: Array<{ name: string; value: number; percentage: string }>) => {
   const dataString = data.map(d => `${d.name}: ${d.value} responses (${d.percentage}%)`).join(', ');
-  
+
   const prompt = `
     Analyze the following categorical distribution from a university student survey question:
     Question: "${question}"
