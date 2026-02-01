@@ -1,8 +1,19 @@
 
-// Helper to safely access process.env in browser environments
+// Helper to safely access environment variables in Vite/Browser environments
 const getEnv = (key: string): string | undefined => {
   try {
-    return typeof process !== 'undefined' ? process.env[key] : undefined;
+    // Vite specific check (requires VITE_ prefix for client-side access)
+    const viteKey = `VITE_${key}`;
+    if (typeof import.meta !== 'undefined' && (import.meta as any).env) {
+      const env = (import.meta as any).env;
+      if (env[viteKey]) return env[viteKey];
+      if (env[key]) return env[key];
+    }
+    // Standard process.env check
+    if (typeof process !== 'undefined' && process.env) {
+      return process.env[viteKey] || process.env[key];
+    }
+    return undefined;
   } catch {
     return undefined;
   }
@@ -10,7 +21,7 @@ const getEnv = (key: string): string | undefined => {
 
 export const ADMIN_CREDENTIALS = {
   email: getEnv('ADMIN_EMAIL') ,
-  password: getEnv('ADMIN_PASSWORD')
+  password: getEnv('ADMIN_PASSWORD') 
 };
 
 export const COLORS = [

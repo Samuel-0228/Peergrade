@@ -5,7 +5,16 @@ import { GoogleGenAI } from "@google/genai";
 
 const getEnv = (key: string): string | undefined => {
   try {
-    return typeof process !== 'undefined' ? process.env[key] : undefined;
+    const viteKey = `VITE_${key}`;
+    if (typeof import.meta !== 'undefined' && (import.meta as any).env) {
+      const env = (import.meta as any).env;
+      if (env[viteKey]) return env[viteKey];
+      if (env[key]) return env[key];
+    }
+    if (typeof process !== 'undefined' && process.env) {
+      return process.env[viteKey] || process.env[key];
+    }
+    return undefined;
   } catch {
     return undefined;
   }

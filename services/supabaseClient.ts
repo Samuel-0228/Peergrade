@@ -8,14 +8,24 @@ import { createClient } from '@supabase/supabase-js';
 
 const getEnv = (key: string): string | undefined => {
   try {
-    return typeof process !== 'undefined' ? process.env[key] : undefined;
+    const viteKey = `VITE_${key}`;
+    if (typeof import.meta !== 'undefined' && (import.meta as any).env) {
+      const env = (import.meta as any).env;
+      if (env[viteKey]) return env[viteKey];
+      if (env[key]) return env[key];
+    }
+    if (typeof process !== 'undefined' && process.env) {
+      return process.env[viteKey] || process.env[key];
+    }
+    return undefined;
   } catch {
     return undefined;
   }
 };
 
-const supabaseUrl = getEnv('SUPABASE_URL');
-const supabaseAnonKey = getEnv('SUPABASE_ANON_KEY');
+const supabaseUrl = getEnv('SUPABASE_URL') ;
+const supabaseAnonKey = getEnv('SUPABASE_ANON_KEY') ;
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 /**

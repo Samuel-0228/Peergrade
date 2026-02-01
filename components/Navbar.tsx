@@ -39,12 +39,7 @@ const Navbar: React.FC<NavbarProps> = ({ isAdmin, onLogout }) => {
                   Sign Out
                 </button>
               </>
-            ) : (
-              <Link to="/login" className="text-slate-400 hover:text-white flex items-center gap-2 text-sm font-medium transition-colors">
-                <ShieldCheck className="w-4 h-4" />
-                Staff Login
-              </Link>
-            )}
+            ):null}
           </div>
         </div>
       </div>
