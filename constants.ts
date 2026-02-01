@@ -1,8 +1,8 @@
 
-/*export const ADMIN_CREDENTIALS = {
-  email: 'savvysocietyteam@gmail.com',
-  password: 'SavvyisHard'
-};*/
+export const ADMIN_CREDENTIALS = {
+  email: process.env.ADMIN_EMAIL || 'savvysocietyteam@gmail.com',
+  password: process.env.ADMIN_PASSWORD || 'SavvyisHard'
+};
 
 export const COLORS = [
   '#6366f1', // Indigo 500

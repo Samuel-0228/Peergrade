@@ -1,26 +1,8 @@
 
-// Fix for TypeScript: declare ImportMetaEnv type for VITE_ADMIN_EMAIL and VITE_ADMIN_PASSWORD
-interface ImportMetaEnv {
-  readonly VITE_ADMIN_EMAIL: string;
-  readonly VITE_ADMIN_PASSWORD: string;
-}
-
-interface ImportMeta {
-  readonly env: ImportMetaEnv;
-}
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShieldAlert, KeyRound, Mail } from 'lucide-react';
-//import { ADMIN_CREDENTIALS } from '../constants';
-
-const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL;
-const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD;
-
-const ADMIN_CREDENTIALS = {
-  email: ADMIN_EMAIL,
-  password: ADMIN_PASSWORD
-};
+import { ADMIN_CREDENTIALS } from '../constants';
 
 interface AdminLoginProps {
   onLogin: (email: string) => void;
