@@ -1,8 +1,8 @@
 
-export const ADMIN_CREDENTIALS = {
+/*export const ADMIN_CREDENTIALS = {
   email: 'savvysocietyteam@gmail.com',
   password: 'SavvyisHard'
-};
+};*/
 
 export const COLORS = [
   '#6366f1', // Indigo 500
