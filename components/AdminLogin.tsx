@@ -18,7 +18,7 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
     e.preventDefault();
     if (email === ADMIN_CREDENTIALS.email && password === ADMIN_CREDENTIALS.password) {
       onLogin(email);
-      navigate('/admin');
+      navigate('/secret');
     } else {
       setError('Invalid administrative credentials provided.');
     }

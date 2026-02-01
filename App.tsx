@@ -101,7 +101,7 @@ const Footer: React.FC = () => {
 
           <div className="flex flex-col items-center gap-4">
             <a 
-              href="https://t.me/savvysociety" 
+              href="https://t.me/savvy_society" 
               target="_blank" 
               rel="noopener noreferrer"
               className="inline-flex items-center gap-3 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full transition-all group shadow-lg shadow-indigo-600/20"
