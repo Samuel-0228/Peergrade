@@ -3,12 +3,19 @@ import { createClient } from '@supabase/supabase-js';
 
 /**
  * Supabase configuration.
- * Environment variables are preferred for deployment, with defaults for development.
+ * Environment variables are preferred for deployment, with defaults for development and data continuity.
  */
 
-const supabaseUrl = process.env.SUPABASE_URL || 'https://zaztjiljjqvpmxjcdten.supabase.co';
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InphenRqaWxqanF2cG14amNkdGVuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI4NjI0NjcsImV4cCI6MjA3ODQzODQ2N30.kmXhS5DOr-k3Tx_FOGLr7IXa-Df8QtTNaxpzBMU-0JA';
+const getEnv = (key: string): string | undefined => {
+  try {
+    return typeof process !== 'undefined' ? process.env[key] : undefined;
+  } catch {
+    return undefined;
+  }
+};
 
+const supabaseUrl = getEnv('SUPABASE_URL');
+const supabaseAnonKey = getEnv('SUPABASE_ANON_KEY');
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 /**

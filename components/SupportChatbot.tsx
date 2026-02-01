@@ -3,6 +3,14 @@ import React, { useState, useRef, useEffect } from 'react';
 import { MessageSquare, X, Send, Sparkles, Loader2, AlertCircle, Info } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 
+const getEnv = (key: string): string | undefined => {
+  try {
+    return typeof process !== 'undefined' ? process.env[key] : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
 const SupportChatbot: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<{ role: 'user' | 'bot'; text: string; isError?: boolean }[]>([
@@ -29,11 +37,12 @@ const SupportChatbot: React.FC = () => {
     setIsLoading(true);
 
     try {
-      if (!process.env.API_KEY) {
+      const apiKey = getEnv('API_KEY');
+      if (!apiKey) {
         throw new Error("UNAVAILABLE");
       }
 
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const ai = new GoogleGenAI({ apiKey });
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: userMessage,
@@ -53,10 +62,15 @@ const SupportChatbot: React.FC = () => {
       setMessages(prev => [...prev, { role: 'bot', text: botText }]);
     } catch (error: any) {
       console.error("Internal Service Error:", error);
-      // Generic error message for all failures to maintain clean UI
+      let errorMsg = "The support system is temporarily unavailable. Please try again later.";
+      
+      if (error.message === "UNAVAILABLE") {
+        errorMsg = "Configuration Alert: API_KEY is missing from the server environment. Staff: Please verify Vercel environment variables.";
+      }
+
       setMessages(prev => [...prev, { 
         role: 'bot', 
-        text: "The support system is temporarily unavailable. Please try again later.",
+        text: errorMsg,
         isError: true 
       }]);
     } finally {

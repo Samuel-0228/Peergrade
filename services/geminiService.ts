@@ -1,11 +1,20 @@
 
 import { GoogleGenAI } from "@google/genai";
 
+const getEnv = (key: string): string | undefined => {
+  try {
+    return typeof process !== 'undefined' ? process.env[key] : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
 const getAI = () => {
-  if (!process.env.API_KEY) {
+  const apiKey = getEnv('API_KEY');
+  if (!apiKey) {
     throw new Error("CONFIG_ERROR");
   }
-  return new GoogleGenAI({ apiKey: process.env.API_KEY });
+  return new GoogleGenAI({ apiKey });
 };
 
 export const generateAcademicSummary = async (question: string, data: Array<{ name: string; value: number; percentage: string }>) => {
@@ -39,6 +48,9 @@ export const generateAcademicSummary = async (question: string, data: Array<{ na
     return response.text || "Summary not available for this data segment.";
   } catch (error: any) {
     console.error("Gemini Internal Error:", error);
+    if (error.message === "CONFIG_ERROR") {
+      return "Service configuration pending (API_KEY missing from environment).";
+    }
     return "Summary analysis not available for this session.";
   }
 };

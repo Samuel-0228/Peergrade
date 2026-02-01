@@ -1,7 +1,16 @@
 
+// Helper to safely access process.env in browser environments
+const getEnv = (key: string): string | undefined => {
+  try {
+    return typeof process !== 'undefined' ? process.env[key] : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
 export const ADMIN_CREDENTIALS = {
-  email: process.env.ADMIN_EMAIL || 'savvysocietyteam@gmail.com',
-  password: process.env.ADMIN_PASSWORD || 'SavvyisHard'
+  email: getEnv('ADMIN_EMAIL') ,
+  password: getEnv('ADMIN_PASSWORD')
 };
 
 export const COLORS = [
