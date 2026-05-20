@@ -25,14 +25,14 @@ export const ADMIN_CREDENTIALS = {
 };
 
 export const COLORS = [
-  '#ffffff', // White
-  '#e5e5e5', // Very Light Gray
-  '#a3a3a3', // Light/Mid Gray
-  '#737373', // Mid Gray
-  '#525252', // Dark Gray
-  '#404040', // Very Dark Gray
-  '#262626', // Almost Black
-  '#171717', // Near Black
+  '#0ea5e9', // Sky Blue
+  '#8b5cf6', // Violet
+  '#f43f5e', // Rose
+  '#10b981', // Emerald
+  '#f59e0b', // Amber
+  '#ec4899', // Pink
+  '#14b8a6', // Teal
+  '#84cc16', // Lime
 ];
 
 export const CHART_COLORS_MAP = {

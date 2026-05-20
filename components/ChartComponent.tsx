@@ -76,12 +76,12 @@ const ChartComponent: React.FC<ChartComponentProps> = ({ analysis, variant = 'di
               />
               <Tooltip content={<CustomTooltip />} />
               <Line
-                type="step"
+                type="monotone"
                 dataKey="percentValue"
-                stroke="#ffffff"
+                stroke={COLORS[0]}
                 strokeWidth={2}
                 dot={{ r: 0 }}
-                activeDot={{ r: 4, fill: '#ffffff', stroke: '#000000', strokeWidth: 2 }}
+                activeDot={{ r: 4, fill: COLORS[0], stroke: '#000000', strokeWidth: 2 }}
               />
             </LineChart>
           ) : variant === 'comparison' || !isPie ? (
