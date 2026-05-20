@@ -100,17 +100,17 @@ const AdminPanel: React.FC = () => {
   const isRlsError = error?.includes('Policy Error') || error?.includes('security policy');
 
   return (
-    <div className="mx-auto max-w-7xl py-12 px-4 sm:px-6 lg:px-8 xl:max-w-screen-2xl">
+    <div className="mx-auto max-w-7xl py-12 px-4 sm:px-6 lg:px-8 xl:max-w-screen-2xl font-sans bg-black text-white">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div className="flex items-center gap-3">
-          <LayoutPanelTop className="w-8 h-8 text-indigo-500" />
-          <h1 className="text-3xl font-academic font-bold text-white tracking-tight">Administrative Controller</h1>
+          <LayoutPanelTop className="w-8 h-8 text-white" />
+          <h1 className="text-3xl font-bold text-white tracking-tighter uppercase">Administrative Controller</h1>
         </div>
 
-        <div className={`flex items-center gap-3 px-4 py-2 rounded-lg border text-xs font-mono-academic transition-all ${
-          connectivity.checking ? 'bg-slate-900 border-slate-800 text-slate-400' :
-          connectivity.ok ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
-          'bg-rose-500/10 border-rose-500/20 text-rose-400'
+        <div className={`flex items-center gap-3 px-4 py-2 rounded-none border text-xs font-mono font-bold uppercase tracking-widest transition-colors ${
+          connectivity.checking ? 'bg-neutral-900 border-neutral-800 text-neutral-400' :
+          connectivity.ok ? 'bg-neutral-900 border-neutral-800 text-white' :
+          'bg-black border-white text-white'
         }`}>
           {connectivity.checking ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : 
            connectivity.ok ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
@@ -125,37 +125,37 @@ const AdminPanel: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-1">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sticky top-24">
-            <h2 className="text-lg font-academic font-bold text-white mb-6 flex items-center gap-2">
-              <Plus className="w-5 h-5 text-indigo-500" />
+          <div className="bg-black border border-neutral-800 rounded-none p-6 sticky top-24">
+            <h2 className="text-lg font-bold text-white mb-6 flex items-center gap-2 uppercase tracking-tight">
+              <Plus className="w-5 h-5 text-white" />
               New Research Session
             </h2>
             
             <div className="space-y-6">
               <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Session Title</label>
+                <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-2">Session Title</label>
                 <input 
                   type="text" 
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2.5 px-4 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all text-sm"
+                  className="w-full bg-neutral-950 border border-neutral-800 rounded-none py-2.5 px-4 text-white focus:outline-none focus:border-white focus:ring-1 focus:ring-white transition-colors text-sm font-bold placeholder:text-neutral-600"
                   placeholder="e.g., Freshman Satisfaction 2024"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Session Description</label>
+                <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-2">Session Description</label>
                 <textarea 
                   value={newDescription}
                   onChange={(e) => setNewDescription(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2.5 px-4 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all text-sm min-h-[100px]"
+                  className="w-full bg-neutral-950 border border-neutral-800 rounded-none py-2.5 px-4 text-white focus:outline-none focus:border-white focus:ring-1 focus:ring-white transition-colors text-sm min-h-[100px] placeholder:text-neutral-600"
                   placeholder="Brief context for the study..."
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Upload Dataset (.CSV)</label>
-                <div className="relative border-2 border-dashed border-slate-800 rounded-xl p-8 text-center hover:border-indigo-500/50 transition-colors group cursor-pointer">
+                <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-2">Upload Dataset (.CSV)</label>
+                <div className="relative border border-dashed border-neutral-800 rounded-none p-8 text-center hover:border-white transition-colors group cursor-pointer bg-neutral-950">
                   <input 
                     type="file" 
                     accept=".csv"
@@ -165,13 +165,13 @@ const AdminPanel: React.FC = () => {
                   />
                   {isUploading ? (
                     <div className="flex flex-col items-center">
-                      <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mb-2" />
-                      <p className="text-slate-400 text-xs font-medium">Processing & Indexing...</p>
+                      <Loader2 className="w-8 h-8 text-white animate-spin mb-2" />
+                      <p className="text-neutral-400 text-xs font-bold uppercase tracking-widest">Processing & Indexing...</p>
                     </div>
                   ) : (
                     <div className="flex flex-col items-center">
-                      <Upload className="w-8 h-8 text-slate-600 mb-2 group-hover:text-indigo-400 transition-colors" />
-                      <p className="text-slate-400 text-xs font-medium">Select or Drop CSV File</p>
+                      <Upload className="w-8 h-8 text-neutral-600 mb-2 group-hover:text-white transition-colors" />
+                      <p className="text-neutral-400 text-xs font-bold uppercase tracking-widest">Select or Drop CSV File</p>
                     </div>
                   )}
                 </div>
@@ -179,18 +179,18 @@ const AdminPanel: React.FC = () => {
 
               {error && (
                 <div className="space-y-4">
-                  <div className="flex gap-2 p-3 bg-rose-500/10 border border-rose-500/20 rounded-lg">
-                    <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
-                    <p className="text-rose-500 text-xs font-medium">{error}</p>
+                  <div className="flex gap-2 p-3 bg-black border border-white rounded-none">
+                    <AlertCircle className="w-4 h-4 text-white shrink-0 mt-0.5" />
+                    <p className="text-white text-xs font-bold uppercase tracking-wide">{error}</p>
                   </div>
                   
                   {isRlsError && (
-                    <div className="p-4 bg-amber-500/5 border border-amber-500/20 rounded-lg">
+                    <div className="p-4 bg-neutral-900 border border-neutral-700 rounded-none">
                       <div className="flex items-center gap-2 mb-2">
-                        <ShieldAlert className="w-4 h-4 text-amber-500" />
-                        <h4 className="text-[10px] font-bold uppercase tracking-widest text-amber-500">Quick Setup Guide</h4>
+                        <ShieldAlert className="w-4 h-4 text-white" />
+                        <h4 className="text-[10px] font-bold uppercase tracking-widest text-white">Quick Setup Guide</h4>
                       </div>
-                      <p className="text-slate-400 text-[10px] leading-relaxed italic">
+                      <p className="text-neutral-400 text-[10px] leading-relaxed">
                         1. Go to your Supabase Dashboard.<br/>
                         2. Navigate to <strong>Storage</strong> (for bucket) or <strong>Database</strong> (for tables).<br/>
                         3. Find 'csv-archives' or 'sessions' table.<br/>
@@ -206,15 +206,15 @@ const AdminPanel: React.FC = () => {
         </div>
 
         <div className="lg:col-span-2">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-            <h2 className="text-lg font-academic font-bold text-white mb-6 flex items-center gap-2">
-              <Database className="w-5 h-5 text-indigo-500" />
+          <div className="bg-black border border-neutral-800 rounded-none p-6">
+            <h2 className="text-lg font-bold text-white mb-6 flex items-center gap-2 uppercase tracking-tight">
+              <Database className="w-5 h-5 text-white" />
               Existing Archives
             </h2>
             {isLoading ? (
-              <div className="flex flex-col items-center justify-center py-20">
-                <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mb-4" />
-                <p className="text-slate-500 text-sm">Fetching cloud archives...</p>
+              <div className="flex flex-col items-center justify-center py-20 bg-neutral-950 border border-neutral-800">
+                <Loader2 className="w-8 h-8 text-white animate-spin mb-4" />
+                <p className="text-neutral-500 text-xs font-bold uppercase tracking-widest">Fetching cloud archives...</p>
               </div>
             ) : (
               <SessionList 

@@ -1,12 +1,12 @@
 :root {
   color-scheme: dark;
-  --bg: #0b0f14;
-  --surface: rgba(17, 24, 39, 0.72);
-  --surface-strong: #111827;
-  --border: rgba(255, 255, 255, 0.08);
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --accent: #6366f1;
+  --bg: #000000;
+  --surface: #000000;
+  --surface-strong: #000000;
+  --border: #333333;
+  --text-primary: #ffffff;
+  --text-secondary: #999999;
+  --accent: #ffffff;
 }
 
 * {
@@ -20,25 +20,9 @@ html {
 body {
   margin: 0;
   min-height: 100vh;
-  font-family: 'Manrope', sans-serif;
-  background:
-    radial-gradient(circle at top, rgba(99, 102, 241, 0.12), transparent 32%),
-    linear-gradient(180deg, rgba(15, 23, 42, 0.28), rgba(11, 15, 20, 0)),
-    var(--bg);
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg);
   color: var(--text-primary);
-}
-
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
-  background-size: 32px 32px;
-  opacity: 0.22;
-  mask-image: radial-gradient(circle at center, black 45%, transparent 95%);
 }
 
 #root {

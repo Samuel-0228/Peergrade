@@ -26,39 +26,34 @@ const Home: React.FC = () => {
   }, []);
 
   return (
-    <div className="mx-auto max-w-7xl px-4 sm:px-6 py-10 lg:px-8 xl:max-w-screen-2xl">
+    <div className="mx-auto max-w-7xl px-4 sm:px-6 py-10 lg:px-8 xl:max-w-screen-2xl bg-black font-sans">
       {/* Aesthetic Hero Section */}
-      <header className="fade-up relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-[#0f172a]/90 via-[#1e1b4b]/80 to-[#0f172a]/90 px-6 py-16 shadow-[0_20px_50px_rgba(0,0,0,0.5)] backdrop-blur-md md:px-12 md:py-24">
-        {/* Dynamic Background Elements */}
-        <div className="absolute top-0 left-0 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-fuchsia-600/20 rounded-full blur-[120px]" />
-        <div className="absolute bottom-0 right-0 translate-x-1/3 translate-y-1/3 w-[30rem] h-[30rem] bg-cyan-600/20 rounded-full blur-[120px]" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[radial-gradient(ellipse_at_center,rgba(99,102,241,0.15),transparent_60%)] pointer-events-none" />
-
+      <header className="fade-up relative overflow-hidden rounded-none border border-neutral-800 bg-black px-6 py-16 md:px-12 md:py-24">
         <div className="relative z-10 mx-auto max-w-4xl text-center">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-fuchsia-400/30 bg-fuchsia-500/10 px-4 py-1.5 text-xs font-medium uppercase tracking-widest text-fuchsia-300 shadow-[0_0_15px_rgba(217,70,239,0.2)] backdrop-blur-sm transition-transform hover:scale-105">
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-neutral-400 transition-transform hover:bg-neutral-800">
             <Sparkles className="h-4 w-4" />
             AI-Powered Research Intelligence
           </div>
-          <h1 className="bg-gradient-to-r from-white via-indigo-200 to-fuchsia-200 bg-clip-text text-5xl font-extrabold tracking-tight text-transparent sm:text-6xl md:text-7xl lg:text-8xl">
+          <h1 className="text-white text-5xl font-bold tracking-tighter sm:text-6xl md:text-7xl lg:text-8xl">
             Insights at the Speed of Thought.
           </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-slate-300 md:text-xl">
+          <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-neutral-400 md:text-xl">
             Transform raw survey data into stunning, interactive visualizations. Discover hidden patterns, compare distributions, and turn feedback into actionable signals instantly.
           </p>
           
           {/* Quick Stats Grid inside Hero */}
           <div className="mx-auto mt-12 grid max-w-3xl grid-cols-2 gap-4 sm:grid-cols-3">
-            <div className="flex flex-col items-center justify-center rounded-xl border border-white/5 bg-white/[0.02] p-4 backdrop-blur-md">
+            <div className="flex flex-col items-center justify-center rounded-none border border-neutral-800 bg-neutral-900/50 p-4 transition-colors hover:bg-neutral-800">
               <span className="text-3xl font-bold text-white">{isLoading ? '...' : sessions.length}</span>
-              <span className="mt-1 text-xs uppercase tracking-wider text-slate-400">Published Reports</span>
+              <span className="mt-1 text-xs uppercase tracking-wider text-neutral-500">Published Reports</span>
             </div>
-            <div className="flex flex-col items-center justify-center rounded-xl border border-white/5 bg-white/[0.02] p-4 backdrop-blur-md">
+            <div className="flex flex-col items-center justify-center rounded-none border border-neutral-800 bg-neutral-900/50 p-4 transition-colors hover:bg-neutral-800">
               <span className="text-3xl font-bold text-white">24/7</span>
-              <span className="mt-1 text-xs uppercase tracking-wider text-slate-400">Data Availability</span>
+              <span className="mt-1 text-xs uppercase tracking-wider text-neutral-500">Data Availability</span>
             </div>
-            <div className="col-span-2 sm:col-span-1 flex flex-col items-center justify-center rounded-xl border border-white/5 bg-white/[0.02] p-4 backdrop-blur-md">
+            <div className="col-span-2 sm:col-span-1 flex flex-col items-center justify-center rounded-none border border-neutral-800 bg-neutral-900/50 p-4 transition-colors hover:bg-neutral-800">
               <span className="text-3xl font-bold text-white">100%</span>
-              <span className="mt-1 text-xs uppercase tracking-wider text-slate-400">Signal Clarity</span>
+              <span className="mt-1 text-xs uppercase tracking-wider text-neutral-500">Signal Clarity</span>
             </div>
           </div>
         </div>
@@ -67,40 +62,40 @@ const Home: React.FC = () => {
       {/* How It Works Section */}
       <section className="fade-up mt-24 mb-16" style={{ animationDelay: '0.1s' }}>
         <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">How It Works</h2>
-          <p className="mt-4 text-lg text-slate-400">From raw data to beautiful insights in three simple steps.</p>
+          <h2 className="text-3xl font-bold tracking-tighter text-white sm:text-4xl">How It Works</h2>
+          <p className="mt-4 text-lg text-neutral-400">From raw data to beautiful insights in three simple steps.</p>
         </div>
         
         <div className="grid grid-cols-1 gap-8 md:grid-cols-3 lg:gap-12 relative">
           {/* Connecting Lines for Desktop */}
-          <div className="hidden md:block absolute top-24 left-[16%] right-[16%] h-0.5 bg-gradient-to-r from-transparent via-indigo-500/30 to-transparent z-0"></div>
+          <div className="hidden md:block absolute top-16 left-[16%] right-[16%] h-[1px] bg-neutral-800 z-0"></div>
           
-          <div className="group relative z-10 flex flex-col items-center text-center">
-            <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 shadow-[0_0_30px_rgba(56,189,248,0.15)] ring-1 ring-white/10 transition-all duration-300 group-hover:scale-110 group-hover:shadow-[0_0_40px_rgba(56,189,248,0.3)] group-hover:ring-sky-400/50">
-              <Database className="h-10 w-10 text-sky-400" />
+          <div className="group relative z-10 flex flex-col items-center text-center bg-black">
+            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-none bg-black border border-neutral-800 transition-colors duration-300 group-hover:bg-white group-hover:text-black text-white">
+              <Database className="h-8 w-8" />
             </div>
-            <h3 className="mb-3 text-xl font-semibold text-white">1. Data Collection</h3>
-            <p className="text-sm leading-relaxed text-slate-400">
+            <h3 className="mb-3 text-lg font-bold text-white tracking-tight uppercase">1. Data Collection</h3>
+            <p className="text-sm leading-relaxed text-neutral-400">
               Gather responses using your preferred tools. Export your survey results or datasets into a structured CSV format.
             </p>
           </div>
 
-          <div className="group relative z-10 flex flex-col items-center text-center">
-            <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 shadow-[0_0_30px_rgba(217,70,239,0.15)] ring-1 ring-white/10 transition-all duration-300 group-hover:scale-110 group-hover:shadow-[0_0_40px_rgba(217,70,239,0.3)] group-hover:ring-fuchsia-400/50">
-              <UploadCloud className="h-10 w-10 text-fuchsia-400" />
+          <div className="group relative z-10 flex flex-col items-center text-center bg-black">
+            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-none bg-black border border-neutral-800 transition-colors duration-300 group-hover:bg-white group-hover:text-black text-white">
+              <UploadCloud className="h-8 w-8" />
             </div>
-            <h3 className="mb-3 text-xl font-semibold text-white">2. Feed to Platform</h3>
-            <p className="text-sm leading-relaxed text-slate-400">
+            <h3 className="mb-3 text-lg font-bold text-white tracking-tight uppercase">2. Feed to Platform</h3>
+            <p className="text-sm leading-relaxed text-neutral-400">
               Upload the CSV file directly into our web platform. Our engine automatically parses and structures the data for analysis.
             </p>
           </div>
 
-          <div className="group relative z-10 flex flex-col items-center text-center">
-            <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 shadow-[0_0_30px_rgba(16,185,129,0.15)] ring-1 ring-white/10 transition-all duration-300 group-hover:scale-110 group-hover:shadow-[0_0_40px_rgba(16,185,129,0.3)] group-hover:ring-emerald-400/50">
-              <LineChartIcon className="h-10 w-10 text-emerald-400" />
+          <div className="group relative z-10 flex flex-col items-center text-center bg-black">
+            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-none bg-black border border-neutral-800 transition-colors duration-300 group-hover:bg-white group-hover:text-black text-white">
+              <LineChartIcon className="h-8 w-8" />
             </div>
-            <h3 className="mb-3 text-xl font-semibold text-white">3. Visualize & Analyze</h3>
-            <p className="text-sm leading-relaxed text-slate-400">
+            <h3 className="mb-3 text-lg font-bold text-white tracking-tight uppercase">3. Visualize & Analyze</h3>
+            <p className="text-sm leading-relaxed text-neutral-400">
               Instantly explore vibrant, interactive charts and receive AI-generated summaries that highlight key trends.
             </p>
           </div>
@@ -108,24 +103,24 @@ const Home: React.FC = () => {
       </section>
 
       {/* Published Sessions Section */}
-      <section className="fade-up mt-24 rounded-2xl border border-white/5 bg-[rgba(15,23,42,0.4)] p-6 shadow-2xl backdrop-blur-xl sm:p-10" style={{ animationDelay: '0.2s' }}>
-        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-white/10 pb-6">
+      <section className="fade-up mt-24 rounded-none border border-neutral-800 bg-black p-6 sm:p-10" style={{ animationDelay: '0.2s' }}>
+        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-neutral-800 pb-6">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-400">
+            <div className="flex h-10 w-10 items-center justify-center bg-neutral-900 border border-neutral-800 text-white">
               <BarChart3 className="h-5 w-5" />
             </div>
-            <h2 className="text-2xl font-semibold tracking-tight text-white">Explore Research Sessions</h2>
+            <h2 className="text-2xl font-bold tracking-tighter text-white">Explore Research Sessions</h2>
           </div>
-          <div className="inline-flex items-center gap-2 rounded-full bg-slate-800 px-4 py-1.5 text-xs font-medium text-slate-300 ring-1 ring-inset ring-white/10">
-            <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></div>
+          <div className="inline-flex items-center gap-2 rounded-none bg-neutral-900 px-4 py-1.5 text-xs font-semibold uppercase text-neutral-300 border border-neutral-800">
+            <div className="h-2 w-2 rounded-full bg-white animate-pulse"></div>
             {isLoading ? 'Syncing...' : `${sessions.length} Available`}
           </div>
         </div>
 
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-white/10 py-32">
-            <Loader2 className="mb-4 h-10 w-10 animate-spin text-indigo-500" />
-            <p className="text-sm font-medium text-slate-400">Synchronizing research workspace...</p>
+          <div className="flex flex-col items-center justify-center rounded-none border border-dashed border-neutral-800 py-32 bg-black">
+            <Loader2 className="mb-4 h-10 w-10 animate-spin text-white" />
+            <p className="text-sm font-semibold uppercase tracking-widest text-neutral-500">Synchronizing research workspace...</p>
           </div>
         ) : (
           <SessionList sessions={sessions} />
@@ -134,26 +129,26 @@ const Home: React.FC = () => {
 
       {/* Features Grid */}
       <div className="fade-up mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3" style={{ animationDelay: '0.3s' }}>
-        <div className="col-span-1 rounded-2xl border border-white/5 bg-gradient-to-br from-slate-800/50 to-slate-900/50 p-8 shadow-lg backdrop-blur-sm lg:col-span-2 transition-all hover:border-indigo-500/30">
-          <h3 className="flex items-center gap-2 text-xl font-semibold text-white">
-            <Cpu className="h-5 w-5 text-indigo-400" /> Built for insight over decoration
+        <div className="col-span-1 rounded-none border border-neutral-800 bg-neutral-950 p-8 lg:col-span-2 transition-colors hover:bg-neutral-900">
+          <h3 className="flex items-center gap-2 text-xl font-bold text-white tracking-tight uppercase">
+            <Cpu className="h-5 w-5 text-white" /> Built for insight over decoration
           </h3>
-          <p className="mt-4 text-base leading-relaxed text-slate-400">
-            Savvy presents collective survey patterns in a format designed for quick comprehension. Every published session emphasizes signal clarity, descriptive summaries, and transparent access to underlying distributions. Our vibrant visualization engine ensures the data is both beautiful and highly readable.
+          <p className="mt-4 text-sm leading-relaxed text-neutral-400">
+            Savvy presents collective survey patterns in a format designed for quick comprehension. Every published session emphasizes signal clarity, descriptive summaries, and transparent access to underlying distributions. Our strict visualization engine ensures the data is both starkly beautiful and highly readable.
           </p>
         </div>
-        <div className="col-span-1 flex flex-col justify-between rounded-2xl border border-white/5 bg-gradient-to-bl from-indigo-900/20 to-slate-900/50 p-8 shadow-lg backdrop-blur-sm transition-all hover:border-fuchsia-500/30">
+        <div className="col-span-1 flex flex-col justify-between rounded-none border border-neutral-800 bg-neutral-950 p-8 transition-colors hover:bg-neutral-900">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-indigo-400">Data Trust</p>
-            <h3 className="mt-3 flex items-center gap-2 text-lg font-semibold text-white">
-              <ShieldCheck className="h-5 w-5 text-emerald-400" />
+            <p className="text-xs font-semibold uppercase tracking-widest text-neutral-500">Data Trust</p>
+            <h3 className="mt-3 flex items-center gap-2 text-lg font-bold text-white tracking-tight uppercase">
+              <ShieldCheck className="h-5 w-5 text-white" />
               Verified Records
             </h3>
-            <p className="mt-4 text-sm leading-relaxed text-slate-400">
+            <p className="mt-4 text-sm leading-relaxed text-neutral-400">
               Anonymized response collections with descriptive analytics for internal learning and strategic planning.
             </p>
           </div>
-          <button className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white/5 px-4 py-3 text-sm font-medium text-white ring-1 ring-inset ring-white/10 transition-all hover:bg-white/10 hover:ring-white/20">
+          <button className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-none bg-white px-4 py-3 text-sm font-bold uppercase text-black transition-colors hover:bg-neutral-200">
             Explore workspace
             <ArrowUpRight className="h-4 w-4" />
           </button>
@@ -165,14 +160,14 @@ const Home: React.FC = () => {
 
 const Footer: React.FC = () => {
   return (
-    <footer className="mt-20 border-t border-white/10 bg-[rgba(11,15,20,0.78)]">
+    <footer className="mt-20 border-t border-neutral-800 bg-black font-sans">
       <div className="mx-auto flex max-w-7xl flex-col gap-8 px-6 py-10 md:flex-row md:items-center md:justify-between lg:px-8">
         <div>
           <div className="mb-2 flex items-center gap-2">
-            <Database className="h-4 w-4 text-indigo-300" />
-            <span className="font-academic text-lg font-semibold tracking-tight text-white">Savvy Research</span>
+            <Database className="h-4 w-4 text-white" />
+            <span className="text-lg font-bold tracking-tight text-white uppercase">Savvy Research</span>
           </div>
-          <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+          <p className="text-xs font-semibold uppercase tracking-widest text-neutral-500">
             © {new Date().getFullYear()} Savvy Research. All rights reserved.
           </p>
         </div>
@@ -182,21 +177,21 @@ const Footer: React.FC = () => {
             href="https://t.me/savvy_society"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-3 rounded-lg border border-indigo-400/25 bg-indigo-500/10 px-5 py-3 text-sm text-indigo-200 transition-all duration-300 hover:-translate-y-0.5 hover:border-indigo-300/35 hover:bg-indigo-500/20"
+            className="inline-flex items-center gap-3 rounded-none border border-neutral-800 bg-neutral-900 px-5 py-3 text-sm text-neutral-300 transition-colors hover:bg-white hover:text-black"
           >
             <Send className="h-4 w-4" />
-            <span className="text-xs uppercase tracking-[0.18em]">Join our Telegram channel</span>
+            <span className="text-xs font-bold uppercase tracking-widest">Join our Telegram channel</span>
           </a>
-          <p className="text-[10px] uppercase tracking-[0.18em] text-slate-600">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-neutral-600">
             Real-time updates on institutional research
           </p>
         </div>
 
         <div className="text-center md:text-right">
-          <p className="mb-1 flex items-center justify-center gap-1.5 text-xs text-slate-400 md:justify-end">
-            Built with <Heart className="h-3 w-3 fill-rose-500 text-rose-500" /> by
+          <p className="mb-1 flex items-center justify-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-neutral-500 md:justify-end">
+            Built with <Heart className="h-3 w-3 fill-white text-white" /> by
           </p>
-          <p className="font-academic text-sm font-semibold tracking-tight text-indigo-200">
+          <p className="text-sm font-bold uppercase tracking-widest text-white">
             Savvy Society Team
           </p>
         </div>
@@ -225,7 +220,7 @@ const App: React.FC = () => {
 
   return (
     <Router>
-      <div className="app-shell flex min-h-screen flex-col selection:bg-indigo-500 selection:text-white">
+      <div className="app-shell flex min-h-screen flex-col selection:bg-white selection:text-black bg-black text-white font-sans">
         <Navbar isAdmin={auth.isAdmin} onLogout={handleLogout} />
         <main className="flex-grow">
           <Routes>

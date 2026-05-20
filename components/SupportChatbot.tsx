@@ -91,43 +91,43 @@ const SupportChatbot: React.FC = () => {
     <>
       <button 
         onClick={() => setIsOpen(!isOpen)}
-        className={`fixed bottom-6 right-6 p-4 rounded-full shadow-2xl transition-all z-[100] ${
-          isOpen ? 'bg-slate-800 rotate-90 scale-90 border border-slate-700' : 'bg-indigo-600 hover:bg-indigo-500 hover:scale-110 shadow-indigo-500/20'
+        className={`fixed bottom-6 right-6 p-4 rounded-none shadow-none transition-colors z-[100] ${
+          isOpen ? 'bg-white text-black border border-white' : 'bg-black text-white border border-white hover:bg-white hover:text-black'
         }`}
       >
-        {isOpen ? <X className="w-6 h-6 text-white" /> : <MessageSquare className="w-6 h-6 text-white" />}
+        {isOpen ? <X className="w-6 h-6" /> : <MessageSquare className="w-6 h-6" />}
       </button>
 
-      <div className={`fixed bottom-24 right-6 w-[380px] max-w-[calc(100vw-3rem)] h-[550px] max-h-[calc(100vh-8rem)] bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-all duration-300 transform z-[100] ${
+      <div className={`fixed bottom-24 right-6 w-[380px] max-w-[calc(100vw-3rem)] h-[550px] max-h-[calc(100vh-8rem)] bg-black border border-neutral-800 rounded-none shadow-none flex flex-col overflow-hidden transition-all duration-300 transform z-[100] font-sans ${
         isOpen ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 translate-y-10 pointer-events-none'
       }`}>
-        <div className="p-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+        <div className="p-4 bg-black border-b border-neutral-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-indigo-600/20 flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-indigo-500" />
+            <div className="w-8 h-8 rounded-none border border-neutral-800 bg-neutral-900 flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-white" />
             </div>
             <div>
-              <h3 className="text-sm font-academic font-bold text-white leading-none">Savvy Support</h3>
-              <p className="text-[10px] text-indigo-400 font-mono-academic font-bold uppercase tracking-widest mt-1">
+              <h3 className="text-sm font-bold text-white leading-none uppercase tracking-tight">Savvy Support</h3>
+              <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest mt-1">
                 AI Research Assistant
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/20">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-[9px] font-bold text-emerald-500 uppercase">Live</span>
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-none border border-neutral-800 bg-black">
+            <span className="w-1.5 h-1.5 rounded-none bg-white animate-pulse" />
+            <span className="text-[9px] font-bold text-white uppercase tracking-widest">Live</span>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-hide bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-hide bg-black">
           {messages.map((msg, i) => (
             <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[85%] p-3.5 rounded-2xl text-xs leading-relaxed shadow-sm ${
+              <div className={`max-w-[85%] p-3.5 rounded-none text-xs leading-relaxed shadow-none border ${
                 msg.role === 'user' 
-                ? 'bg-indigo-600 text-white rounded-br-none' 
+                ? 'bg-white text-black border-white' 
                 : msg.isError 
-                ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20 rounded-bl-none flex gap-2 items-start'
-                : 'bg-slate-800 text-slate-300 rounded-bl-none border border-slate-700'
+                ? 'bg-black text-white border-white flex gap-2 items-start'
+                : 'bg-black text-neutral-300 border-neutral-800'
               }`}>
                 {msg.isError && <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />}
                 {msg.text}
@@ -136,16 +136,16 @@ const SupportChatbot: React.FC = () => {
           ))}
           {isLoading && (
             <div className="flex justify-start">
-              <div className="bg-slate-800/50 p-3 rounded-2xl rounded-bl-none border border-slate-700 flex items-center gap-2">
-                <Loader2 className="w-3 h-3 text-indigo-500 animate-spin" />
-                <span className="text-[10px] text-slate-400 font-mono-academic">Synthesizing...</span>
+              <div className="bg-neutral-950 p-3 rounded-none border border-neutral-800 flex items-center gap-2">
+                <Loader2 className="w-3 h-3 text-white animate-spin" />
+                <span className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest">Synthesizing...</span>
               </div>
             </div>
           )}
           <div ref={messagesEndRef} />
         </div>
 
-        <div className="p-4 bg-slate-950 border-t border-slate-800">
+        <div className="p-4 bg-black border-t border-neutral-800">
           <div className="relative group">
             <input 
               type="text"
@@ -153,19 +153,19 @@ const SupportChatbot: React.FC = () => {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSend()}
               placeholder="Ask for data insights..."
-              className="w-full bg-slate-900 border border-slate-800 rounded-xl py-3 pl-4 pr-12 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all placeholder:text-slate-600"
+              className="w-full bg-neutral-950 border border-neutral-800 rounded-none py-3 pl-4 pr-12 text-xs text-white focus:outline-none focus:border-white focus:ring-1 focus:ring-white transition-colors placeholder:text-neutral-600"
             />
             <button 
               onClick={handleSend}
               disabled={!input.trim() || isLoading}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-slate-500 hover:text-indigo-400 disabled:opacity-50 transition-colors"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-neutral-500 hover:text-white disabled:opacity-50 transition-colors"
             >
               <Send className="w-4 h-4" />
             </button>
           </div>
           <div className="flex items-center justify-center gap-1.5 mt-3 opacity-40">
-            <Info className="w-2.5 h-2.5 text-slate-500" />
-            <p className="text-[8px] text-slate-500 font-mono-academic uppercase tracking-tighter">
+            <Info className="w-2.5 h-2.5 text-neutral-500" />
+            <p className="text-[8px] text-neutral-500 font-bold uppercase tracking-widest">
               Institutional AI Hub • Savvy Society
             </p>
           </div>
