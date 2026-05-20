@@ -1,93 +1,138 @@
-
 import React from 'react';
-import { 
-  PieChart, Pie, Cell, ResponsiveContainer, Tooltip, 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid 
+import {
+  ResponsiveContainer,
+  Tooltip,
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  LineChart,
+  Line,
 } from 'recharts';
 import { ChartType, QuestionAnalysis } from '../types';
 import { COLORS } from '../constants';
 
+type ChartVariant = 'distribution' | 'comparison' | 'trend';
+
 interface ChartComponentProps {
   analysis: QuestionAnalysis;
+  variant?: ChartVariant;
 }
 
 const CustomTooltip = ({ active, payload }: any) => {
-  if (active && payload && payload.length) {
-    const data = payload[0].payload;
-    return (
-      <div className="bg-slate-900 border border-slate-700 p-3 rounded shadow-xl text-xs">
-        <p className="font-bold text-slate-200 mb-1">{data.name}</p>
-        <p className="text-slate-400">Count: <span className="text-indigo-400 font-mono">{data.value}</span></p>
-        <p className="text-slate-400">Ratio: <span className="text-indigo-400 font-mono">{data.percentage}%</span></p>
-      </div>
-    );
+  if (!active || !payload?.length) {
+    return null;
   }
-  return null;
+
+  const data = payload[0].payload;
+
+  return (
+    <div className="rounded-lg border border-white/10 bg-[#111827] px-3 py-2.5 text-xs shadow-2xl shadow-black/30">
+      <p className="mb-1 font-medium text-slate-100">{data.name}</p>
+      <p className="text-slate-400">
+        Volume <span className="font-mono text-indigo-300">{data.value}</span>
+      </p>
+      <p className="text-slate-400">
+        Share <span className="font-mono text-indigo-300">{data.percentage}%</span>
+      </p>
+    </div>
+  );
 };
 
-const ChartComponent: React.FC<ChartComponentProps> = ({ analysis }) => {
+const ChartComponent: React.FC<ChartComponentProps> = ({ analysis, variant = 'distribution' }) => {
+  const sortedData = [...analysis.data].sort((a, b) => Number(b.percentage) - Number(a.percentage));
+  const chartData = sortedData.map((entry, index) => ({
+    ...entry,
+    shortName: entry.name.length > 18 ? `${entry.name.slice(0, 18)}...` : entry.name,
+    rank: `P${index + 1}`,
+    percentValue: Number(entry.percentage),
+  }));
   const isPie = analysis.chartType === ChartType.PIE;
 
   return (
-    <div className="flex flex-col w-full">
-      <div className="h-64 w-full">
+    <div className="flex h-full flex-col">
+      <div className="h-72 w-full">
         <ResponsiveContainer width="100%" height="100%">
-          {isPie ? (
+          {variant === 'trend' ? (
+            <LineChart data={chartData} margin={{ left: 0, right: 12, top: 10, bottom: 0 }}>
+              <CartesianGrid stroke="rgba(148,163,184,0.12)" vertical={false} />
+              <XAxis
+                dataKey="rank"
+                tick={{ fill: '#94a3b8', fontSize: 11 }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                tick={{ fill: '#94a3b8', fontSize: 11 }}
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={(value) => `${value}%`}
+              />
+              <Tooltip content={<CustomTooltip />} />
+              <Line
+                type="monotone"
+                dataKey="percentValue"
+                stroke="#818cf8"
+                strokeWidth={2.5}
+                dot={{ r: 3, fill: '#818cf8', stroke: '#0b0f14', strokeWidth: 2 }}
+                activeDot={{ r: 5, fill: '#c7d2fe' }}
+              />
+            </LineChart>
+          ) : variant === 'comparison' || !isPie ? (
+            <BarChart data={chartData} layout="vertical" margin={{ left: 8, right: 8, top: 8, bottom: 8 }}>
+              <CartesianGrid stroke="rgba(148,163,184,0.1)" horizontal={false} />
+              <XAxis type="number" hide />
+              <YAxis
+                dataKey="shortName"
+                type="category"
+                width={108}
+                axisLine={false}
+                tickLine={false}
+                tick={{ fill: '#cbd5e1', fontSize: 11 }}
+              />
+              <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+              <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={18}>
+                {chartData.map((entry, index) => (
+                  <Cell key={`bar-${entry.name}-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Bar>
+            </BarChart>
+          ) : (
             <PieChart>
               <Pie
-                data={analysis.data}
+                data={chartData}
                 cx="50%"
                 cy="50%"
-                innerRadius={60}
-                outerRadius={80}
-                paddingAngle={5}
+                innerRadius={68}
+                outerRadius={92}
+                paddingAngle={2}
                 dataKey="value"
-                stroke="#0a0a0c"
+                stroke="rgba(11,15,20,0.95)"
                 strokeWidth={2}
               >
-                {analysis.data.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                {chartData.map((entry, index) => (
+                  <Cell key={`pie-${entry.name}-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
               <Tooltip content={<CustomTooltip />} />
             </PieChart>
-          ) : (
-            <BarChart data={analysis.data} layout="vertical" margin={{ left: 10, right: 30, top: 10, bottom: 10 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" horizontal={false} />
-              <XAxis type="number" hide />
-              <YAxis 
-                dataKey="name" 
-                type="category" 
-                width={80} 
-                stroke="#64748b" 
-                fontSize={9} 
-                tick={{ fill: '#94a3b8' }}
-              />
-              <Tooltip content={<CustomTooltip />} cursor={{ fill: '#1e293b' }} />
-              <Bar dataKey="value" radius={[0, 4, 4, 0]}>
-                {analysis.data.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Bar>
-            </BarChart>
           )}
         </ResponsiveContainer>
       </div>
-      
-      {/* Dynamic Labels Legend */}
-      <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 border-t border-slate-800/50 pt-5">
-        {analysis.data.map((entry, index) => (
-          <div key={`legend-${index}`} className="flex items-center gap-2 group">
-            <div 
-              className="w-2.5 h-2.5 rounded-sm shrink-0 shadow-sm" 
-              style={{ backgroundColor: COLORS[index % COLORS.length] }}
-            />
-            <span className="text-[10px] font-mono-academic text-slate-400 truncate group-hover:text-slate-200 transition-colors">
-              {entry.name}
-            </span>
-            <span className="text-[10px] font-mono-academic font-bold text-indigo-500 ml-auto tabular-nums">
-              {entry.percentage}%
-            </span>
+
+      <div className="mt-5 grid grid-cols-1 gap-2 border-t border-white/10 pt-4 sm:grid-cols-2">
+        {chartData.map((entry, index) => (
+          <div key={`legend-${entry.name}-${index}`} className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2">
+            <div className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs text-slate-300">{entry.name}</p>
+              <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">{entry.value} responses</p>
+            </div>
+            <span className="font-mono-academic text-xs font-semibold text-indigo-300">{entry.percentage}%</span>
           </div>
         ))}
       </div>

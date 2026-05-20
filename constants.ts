@@ -26,13 +26,13 @@ export const ADMIN_CREDENTIALS = {
 
 export const COLORS = [
   '#6366f1', // Indigo 500
-  '#a855f7', // Purple 500
-  '#ec4899', // Pink 500
-  '#f43f5e', // Rose 500
-  '#10b981', // Emerald 500
-  '#3b82f6', // Blue 500
-  '#eab308', // Yellow 500
+  '#7c83ff', // Indigo 400
+  '#14b8a6', // Teal 500
+  '#38bdf8', // Sky 400
+  '#22c55e', // Green 500
+  '#f59e0b', // Amber 500
   '#f97316', // Orange 500
+  '#a78bfa', // Violet 400
 ];
 
 export const CHART_COLORS_MAP = {

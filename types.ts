@@ -4,6 +4,12 @@ export enum ChartType {
   BAR = 'BAR'
 }
 
+export interface DataPoint {
+  label: string;
+  count: number;
+  percentage: string;
+}
+
 export interface QuestionAnalysis {
   question: string;
   chartType: ChartType;
