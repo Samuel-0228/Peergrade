@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { ShieldCheck, Database, Loader2, Send, Heart, ArrowUpRight, BarChart3, Sparkles, Activity } from 'lucide-react';
+import { ShieldCheck, Database, Loader2, Send, Heart, ArrowUpRight, BarChart3, Sparkles, Activity, UploadCloud, Cpu, LineChart as LineChartIcon } from 'lucide-react';
 import Navbar from './components/Navbar';
 import SessionList from './components/SessionList';
 import AdminLogin from './components/AdminLogin';
@@ -26,95 +26,137 @@ const Home: React.FC = () => {
   }, []);
 
   return (
-    <div className="mx-auto max-w-7xl px-6 py-10 lg:px-8">
-      <header className="fade-up relative overflow-hidden rounded-xl border border-white/10 bg-[rgba(17,24,39,0.72)] px-6 py-8 shadow-[0_18px_40px_rgba(0,0,0,0.22)] md:px-8 md:py-10">
-        <div className="absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_top,rgba(99,102,241,0.16),transparent_58%)]" />
-        <div className="relative grid grid-cols-12 gap-8">
-          <div className="col-span-12 lg:col-span-8">
-            <div className="mb-5 inline-flex items-center gap-2 rounded-md border border-indigo-400/20 bg-indigo-500/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.24em] text-indigo-200">
-              <Sparkles className="h-3.5 w-3.5" />
-              Modern research workspace
-            </div>
-            <h1 className="max-w-4xl text-4xl font-academic font-semibold tracking-tight text-white md:text-6xl">
-              Insight infrastructure for faster academic decisions.
-            </h1>
-            <p className="mt-5 max-w-3xl text-base leading-7 text-slate-400 md:text-lg">
-              Review published research sessions through a calm, structured interface built for scanning patterns, comparing distributions, and turning raw responses into usable signals.
-            </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <div className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-slate-300">
-                <BarChart3 className="h-4 w-4 text-indigo-300" />
-                Research summaries, charts, and exports
-              </div>
-              <div className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-slate-300">
-                <Activity className="h-4 w-4 text-indigo-300" />
-                Signal-first dashboards for published sessions
-              </div>
-            </div>
-          </div>
+    <div className="mx-auto max-w-7xl px-4 sm:px-6 py-10 lg:px-8 xl:max-w-screen-2xl">
+      {/* Aesthetic Hero Section */}
+      <header className="fade-up relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-[#0f172a]/90 via-[#1e1b4b]/80 to-[#0f172a]/90 px-6 py-16 shadow-[0_20px_50px_rgba(0,0,0,0.5)] backdrop-blur-md md:px-12 md:py-24">
+        {/* Dynamic Background Elements */}
+        <div className="absolute top-0 left-0 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-fuchsia-600/20 rounded-full blur-[120px]" />
+        <div className="absolute bottom-0 right-0 translate-x-1/3 translate-y-1/3 w-[30rem] h-[30rem] bg-cyan-600/20 rounded-full blur-[120px]" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[radial-gradient(ellipse_at_center,rgba(99,102,241,0.15),transparent_60%)] pointer-events-none" />
 
-          <div className="col-span-12 lg:col-span-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
-                <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Collections</p>
-                <p className="mt-2 font-mono-academic text-3xl font-semibold text-white">{isLoading ? '...' : sessions.length}</p>
-              </div>
-              <div className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
-                <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Visibility</p>
-                <p className="mt-2 text-sm leading-6 text-slate-200">Published and ready for review</p>
-              </div>
-              <div className="col-span-2 rounded-lg border border-white/10 bg-[#0f172a]/70 p-4">
-                <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">System note</p>
-                <p className="mt-2 text-sm leading-6 text-slate-300">
-                  Each session is organized as a compact analytics workspace with visual comparisons, key findings, and downloadable source data.
-                </p>
-              </div>
+        <div className="relative z-10 mx-auto max-w-4xl text-center">
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-fuchsia-400/30 bg-fuchsia-500/10 px-4 py-1.5 text-xs font-medium uppercase tracking-widest text-fuchsia-300 shadow-[0_0_15px_rgba(217,70,239,0.2)] backdrop-blur-sm transition-transform hover:scale-105">
+            <Sparkles className="h-4 w-4" />
+            AI-Powered Research Intelligence
+          </div>
+          <h1 className="bg-gradient-to-r from-white via-indigo-200 to-fuchsia-200 bg-clip-text text-5xl font-extrabold tracking-tight text-transparent sm:text-6xl md:text-7xl lg:text-8xl">
+            Insights at the Speed of Thought.
+          </h1>
+          <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-slate-300 md:text-xl">
+            Transform raw survey data into stunning, interactive visualizations. Discover hidden patterns, compare distributions, and turn feedback into actionable signals instantly.
+          </p>
+          
+          {/* Quick Stats Grid inside Hero */}
+          <div className="mx-auto mt-12 grid max-w-3xl grid-cols-2 gap-4 sm:grid-cols-3">
+            <div className="flex flex-col items-center justify-center rounded-xl border border-white/5 bg-white/[0.02] p-4 backdrop-blur-md">
+              <span className="text-3xl font-bold text-white">{isLoading ? '...' : sessions.length}</span>
+              <span className="mt-1 text-xs uppercase tracking-wider text-slate-400">Published Reports</span>
+            </div>
+            <div className="flex flex-col items-center justify-center rounded-xl border border-white/5 bg-white/[0.02] p-4 backdrop-blur-md">
+              <span className="text-3xl font-bold text-white">24/7</span>
+              <span className="mt-1 text-xs uppercase tracking-wider text-slate-400">Data Availability</span>
+            </div>
+            <div className="col-span-2 sm:col-span-1 flex flex-col items-center justify-center rounded-xl border border-white/5 bg-white/[0.02] p-4 backdrop-blur-md">
+              <span className="text-3xl font-bold text-white">100%</span>
+              <span className="mt-1 text-xs uppercase tracking-wider text-slate-400">Signal Clarity</span>
             </div>
           </div>
         </div>
       </header>
 
-      <section className="fade-up mt-6" style={{ animationDelay: '0.08s' }}>
-        <div className="mb-6 flex items-center justify-between border-b border-white/10 pb-4">
-          <div className="flex items-center gap-3">
-            <Database className="h-5 w-5 text-indigo-300" />
-            <h2 className="text-xl font-academic font-semibold tracking-tight text-white">Published research sessions</h2>
+      {/* How It Works Section */}
+      <section className="fade-up mt-24 mb-16" style={{ animationDelay: '0.1s' }}>
+        <div className="text-center mb-12">
+          <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">How It Works</h2>
+          <p className="mt-4 text-lg text-slate-400">From raw data to beautiful insights in three simple steps.</p>
+        </div>
+        
+        <div className="grid grid-cols-1 gap-8 md:grid-cols-3 lg:gap-12 relative">
+          {/* Connecting Lines for Desktop */}
+          <div className="hidden md:block absolute top-24 left-[16%] right-[16%] h-0.5 bg-gradient-to-r from-transparent via-indigo-500/30 to-transparent z-0"></div>
+          
+          <div className="group relative z-10 flex flex-col items-center text-center">
+            <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 shadow-[0_0_30px_rgba(56,189,248,0.15)] ring-1 ring-white/10 transition-all duration-300 group-hover:scale-110 group-hover:shadow-[0_0_40px_rgba(56,189,248,0.3)] group-hover:ring-sky-400/50">
+              <Database className="h-10 w-10 text-sky-400" />
+            </div>
+            <h3 className="mb-3 text-xl font-semibold text-white">1. Data Collection</h3>
+            <p className="text-sm leading-relaxed text-slate-400">
+              Gather responses using your preferred tools. Export your survey results or datasets into a structured CSV format.
+            </p>
           </div>
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
-            {isLoading ? 'Syncing' : `${sessions.length} available`}
-          </p>
+
+          <div className="group relative z-10 flex flex-col items-center text-center">
+            <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 shadow-[0_0_30px_rgba(217,70,239,0.15)] ring-1 ring-white/10 transition-all duration-300 group-hover:scale-110 group-hover:shadow-[0_0_40px_rgba(217,70,239,0.3)] group-hover:ring-fuchsia-400/50">
+              <UploadCloud className="h-10 w-10 text-fuchsia-400" />
+            </div>
+            <h3 className="mb-3 text-xl font-semibold text-white">2. Feed to Platform</h3>
+            <p className="text-sm leading-relaxed text-slate-400">
+              Upload the CSV file directly into our web platform. Our engine automatically parses and structures the data for analysis.
+            </p>
+          </div>
+
+          <div className="group relative z-10 flex flex-col items-center text-center">
+            <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 shadow-[0_0_30px_rgba(16,185,129,0.15)] ring-1 ring-white/10 transition-all duration-300 group-hover:scale-110 group-hover:shadow-[0_0_40px_rgba(16,185,129,0.3)] group-hover:ring-emerald-400/50">
+              <LineChartIcon className="h-10 w-10 text-emerald-400" />
+            </div>
+            <h3 className="mb-3 text-xl font-semibold text-white">3. Visualize & Analyze</h3>
+            <p className="text-sm leading-relaxed text-slate-400">
+              Instantly explore vibrant, interactive charts and receive AI-generated summaries that highlight key trends.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Published Sessions Section */}
+      <section className="fade-up mt-24 rounded-2xl border border-white/5 bg-[rgba(15,23,42,0.4)] p-6 shadow-2xl backdrop-blur-xl sm:p-10" style={{ animationDelay: '0.2s' }}>
+        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-white/10 pb-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-400">
+              <BarChart3 className="h-5 w-5" />
+            </div>
+            <h2 className="text-2xl font-semibold tracking-tight text-white">Explore Research Sessions</h2>
+          </div>
+          <div className="inline-flex items-center gap-2 rounded-full bg-slate-800 px-4 py-1.5 text-xs font-medium text-slate-300 ring-1 ring-inset ring-white/10">
+            <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></div>
+            {isLoading ? 'Syncing...' : `${sessions.length} Available`}
+          </div>
         </div>
 
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center rounded-xl border border-white/10 bg-[rgba(17,24,39,0.48)] py-20">
-            <Loader2 className="mb-4 h-8 w-8 animate-spin text-indigo-400" />
-            <p className="text-sm text-slate-500">Synchronizing research sessions...</p>
+          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-white/10 py-32">
+            <Loader2 className="mb-4 h-10 w-10 animate-spin text-indigo-500" />
+            <p className="text-sm font-medium text-slate-400">Synchronizing research workspace...</p>
           </div>
         ) : (
           <SessionList sessions={sessions} />
         )}
       </section>
 
-      <div className="fade-up mt-6 grid grid-cols-12 gap-6" style={{ animationDelay: '0.16s' }}>
-        <div className="col-span-12 rounded-xl border border-white/10 bg-[rgba(17,24,39,0.72)] p-6 shadow-[0_18px_40px_rgba(0,0,0,0.2)] lg:col-span-8">
-          <h3 className="text-lg font-academic font-semibold text-white">Built for insight over decoration</h3>
-          <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-400">
-            Savvy presents collective survey patterns in a format designed for quick comprehension. Every published session emphasizes signal clarity, descriptive summaries, and transparent access to underlying distributions.
+      {/* Features Grid */}
+      <div className="fade-up mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3" style={{ animationDelay: '0.3s' }}>
+        <div className="col-span-1 rounded-2xl border border-white/5 bg-gradient-to-br from-slate-800/50 to-slate-900/50 p-8 shadow-lg backdrop-blur-sm lg:col-span-2 transition-all hover:border-indigo-500/30">
+          <h3 className="flex items-center gap-2 text-xl font-semibold text-white">
+            <Cpu className="h-5 w-5 text-indigo-400" /> Built for insight over decoration
+          </h3>
+          <p className="mt-4 text-base leading-relaxed text-slate-400">
+            Savvy presents collective survey patterns in a format designed for quick comprehension. Every published session emphasizes signal clarity, descriptive summaries, and transparent access to underlying distributions. Our vibrant visualization engine ensures the data is both beautiful and highly readable.
           </p>
         </div>
-        <div className="col-span-12 rounded-xl border border-white/10 bg-[rgba(17,24,39,0.72)] p-6 shadow-[0_18px_40px_rgba(0,0,0,0.2)] lg:col-span-4">
-          <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Data trust</p>
-          <p className="mt-3 flex items-center gap-2 text-sm font-medium text-indigo-200">
-            <ShieldCheck className="h-4 w-4" />
-            Verified institutional records
-          </p>
-          <p className="mt-3 text-sm leading-6 text-slate-400">
-            Anonymized response collections with descriptive analytics for internal learning and planning.
-          </p>
-          <div className="mt-4 inline-flex items-center gap-2 text-xs text-slate-500">
-            Explore workspace
-            <ArrowUpRight className="h-3.5 w-3.5" />
+        <div className="col-span-1 flex flex-col justify-between rounded-2xl border border-white/5 bg-gradient-to-bl from-indigo-900/20 to-slate-900/50 p-8 shadow-lg backdrop-blur-sm transition-all hover:border-fuchsia-500/30">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-widest text-indigo-400">Data Trust</p>
+            <h3 className="mt-3 flex items-center gap-2 text-lg font-semibold text-white">
+              <ShieldCheck className="h-5 w-5 text-emerald-400" />
+              Verified Records
+            </h3>
+            <p className="mt-4 text-sm leading-relaxed text-slate-400">
+              Anonymized response collections with descriptive analytics for internal learning and strategic planning.
+            </p>
           </div>
+          <button className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white/5 px-4 py-3 text-sm font-medium text-white ring-1 ring-inset ring-white/10 transition-all hover:bg-white/10 hover:ring-white/20">
+            Explore workspace
+            <ArrowUpRight className="h-4 w-4" />
+          </button>
         </div>
       </div>
     </div>

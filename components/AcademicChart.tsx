@@ -1,10 +1,10 @@
-
 import React from 'react';
 import { 
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip, 
   BarChart, Bar, XAxis, YAxis, CartesianGrid 
 } from 'recharts';
 import { DataPoint } from '../types';
+import { COLORS } from '../constants';
 
 interface AcademicChartProps {
   type: 'pie' | 'bar';
@@ -12,12 +12,28 @@ interface AcademicChartProps {
   title: string;
 }
 
-const COLORS = ['#1e293b', '#334155', '#475569', '#64748b', '#94a3b8', '#cbd5e1'];
+const CustomTooltip = ({ active, payload }: any) => {
+  if (!active || !payload?.length) {
+    return null;
+  }
+  const data = payload[0].payload;
+  return (
+    <div className="rounded-lg border border-white/10 bg-[#111827] px-3 py-2.5 text-xs shadow-2xl shadow-black/30">
+      <p className="mb-1 font-medium text-slate-100">{data.label}</p>
+      <p className="text-slate-400">
+        Volume <span className="font-mono text-indigo-300">{data.count}</span>
+      </p>
+      <p className="text-slate-400">
+        Share <span className="font-mono text-indigo-300">{data.percentage}%</span>
+      </p>
+    </div>
+  );
+};
 
 const AcademicChart: React.FC<AcademicChartProps> = ({ type, data, title }) => {
   return (
-    <div className="bg-white border border-slate-200 rounded-lg p-6 shadow-sm flex flex-col h-full">
-      <h3 className="text-sm font-semibold text-slate-900 mb-6 uppercase tracking-wider">{title}</h3>
+    <div className="bg-slate-900/60 border border-white/5 rounded-xl p-6 shadow-lg backdrop-blur-md flex flex-col h-full transition-all hover:border-white/10">
+      <h3 className="text-sm font-semibold text-slate-100 mb-6 uppercase tracking-wider">{title}</h3>
       
       <div className="flex-grow min-h-[300px] w-full">
         <ResponsiveContainer width="100%" height="100%">
@@ -27,46 +43,55 @@ const AcademicChart: React.FC<AcademicChartProps> = ({ type, data, title }) => {
                 data={data}
                 cx="50%"
                 cy="50%"
-                innerRadius={60}
-                outerRadius={100}
+                innerRadius={68}
+                outerRadius={92}
                 paddingAngle={2}
                 dataKey="count"
                 nameKey="label"
+                stroke="rgba(11,15,20,0.95)"
+                strokeWidth={2}
               >
                 {data.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip 
-                contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-              />
+              <Tooltip content={<CustomTooltip />} />
             </PieChart>
           ) : (
-            <BarChart data={data} layout="vertical" margin={{ left: 40, right: 20 }}>
-              <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
+            <BarChart data={data} layout="vertical" margin={{ left: 10, right: 10, top: 10, bottom: 10 }}>
+              <CartesianGrid stroke="rgba(148,163,184,0.1)" horizontal={false} />
               <XAxis type="number" hide />
               <YAxis 
                 type="category" 
                 dataKey="label" 
-                width={120} 
-                tick={{ fontSize: 11, fill: '#64748b' }} 
+                width={108} 
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 11, fill: '#cbd5e1' }} 
               />
-              <Tooltip cursor={{ fill: '#f8fafc' }} />
-              <Bar dataKey="count" fill="#1e293b" radius={[0, 4, 4, 0]} />
+              <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+              <Bar dataKey="count" radius={[0, 6, 6, 0]} barSize={18}>
+                {data.map((entry, index) => (
+                  <Cell key={`bar-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Bar>
             </BarChart>
           )}
         </ResponsiveContainer>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-2">
+      <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-2 border-t border-white/10 pt-4">
         {data.map((item, idx) => (
-          <div key={idx} className="flex items-center text-[10px] text-slate-500 uppercase font-medium">
+          <div key={idx} className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2">
             <span 
-              className="w-2 h-2 rounded-full mr-2" 
-              style={{ backgroundColor: type === 'pie' ? COLORS[idx % COLORS.length] : '#1e293b' }} 
+              className="w-2.5 h-2.5 rounded-sm shrink-0" 
+              style={{ backgroundColor: COLORS[idx % COLORS.length] }} 
             />
-            <span className="truncate flex-grow">{item.label}</span>
-            <span className="ml-1 text-slate-900">{item.percentage}%</span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs text-slate-300">{item.label}</p>
+              <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">{item.count} responses</p>
+            </div>
+            <span className="font-mono-academic text-xs font-semibold text-indigo-300">{item.percentage}%</span>
           </div>
         ))}
       </div>

@@ -147,7 +147,7 @@ const SessionDashboard: React.FC = () => {
   const selectedAnalysis = session.analyses[selectedAnalysisIndex] ?? session.analyses[0];
 
   return (
-    <div className="mx-auto max-w-7xl px-6 py-10 lg:px-8">
+    <div className="mx-auto max-w-7xl px-4 sm:px-6 py-10 lg:px-8 xl:max-w-screen-2xl">
       <Link to="/" className="mb-6 inline-flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-slate-500 transition-colors hover:text-slate-200">
         <ArrowLeft className="h-4 w-4" />
         All research sessions

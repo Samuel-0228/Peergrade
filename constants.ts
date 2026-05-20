@@ -25,14 +25,16 @@ export const ADMIN_CREDENTIALS = {
 };
 
 export const COLORS = [
-  '#6366f1', // Indigo 500
-  '#7c83ff', // Indigo 400
-  '#14b8a6', // Teal 500
-  '#38bdf8', // Sky 400
-  '#22c55e', // Green 500
-  '#f59e0b', // Amber 500
-  '#f97316', // Orange 500
-  '#a78bfa', // Violet 400
+  '#ff007a', // Vibrant Pink
+  '#7928ca', // Deep Purple
+  '#00dfd8', // Cyan
+  '#f5a623', // Bright Orange
+  '#10b981', // Emerald Green
+  '#3b82f6', // Bright Blue
+  '#8b5cf6', // Violet
+  '#ec4899', // Pink
+  '#eab308', // Yellow
+  '#14b8a6', // Teal
 ];
 
 export const CHART_COLORS_MAP = {

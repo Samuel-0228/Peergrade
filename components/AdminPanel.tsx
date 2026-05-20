@@ -100,7 +100,7 @@ const AdminPanel: React.FC = () => {
   const isRlsError = error?.includes('Policy Error') || error?.includes('security policy');
 
   return (
-    <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-7xl py-12 px-4 sm:px-6 lg:px-8 xl:max-w-screen-2xl">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div className="flex items-center gap-3">
           <LayoutPanelTop className="w-8 h-8 text-indigo-500" />
